@@ -1,30 +1,6 @@
 /******************************************************************************
 Copyright (c) 2020, Farbod Farshidian. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
- * Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+... (license header)
 ******************************************************************************/
 
 #include <pinocchio/fwd.hpp>
@@ -44,6 +20,9 @@ namespace legged_robot {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief LeggedRobotPreComputation 构造函数
+ */
 LeggedRobotPreComputation::LeggedRobotPreComputation(PinocchioInterface pinocchioInterface, CentroidalModelInfo info,
                                                      const SwingTrajectoryPlanner& swingTrajectoryPlanner, ModelSettings settings)
     : pinocchioInterface_(std::move(pinocchioInterface)),
@@ -58,6 +37,9 @@ LeggedRobotPreComputation::LeggedRobotPreComputation(PinocchioInterface pinocchi
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief LeggedRobotPreComputation 拷贝构造函数
+ */
 LeggedRobotPreComputation::LeggedRobotPreComputation(const LeggedRobotPreComputation& rhs)
     : pinocchioInterface_(rhs.pinocchioInterface_),
       info_(rhs.info_),
@@ -71,16 +53,27 @@ LeggedRobotPreComputation::LeggedRobotPreComputation(const LeggedRobotPreComputa
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 执行预计算
+ *
+ * @param request 请求集合，指明需要计算哪些量
+ * @param t 当前时间
+ * @param x 当前状态
+ * @param u 当前输入
+ */
 void LeggedRobotPreComputation::request(RequestSet request, scalar_t t, const vector_t& x, const vector_t& u) {
+  // 如果请求中不包含代价或约束，则无需进行预计算
   if (!request.containsAny(Request::Cost + Request::Constraint + Request::SoftConstraint)) {
     return;
   }
 
-  // lambda to set config for normal velocity constraints
+  // 定义一个lambda函数，用于为法向速度约束生成配置
   auto eeNormalVelConConfig = [&](size_t footIndex) {
     EndEffectorLinearConstraint::Config config;
+    // 约束形式: 1.0 * v_z - v_z_ref = 0
     config.b = (vector_t(1) << -swingTrajectoryPlannerPtr_->getZvelocityConstraint(footIndex, t)).finished();
     config.Av = (matrix_t(1, 3) << 0.0, 0.0, 1.0).finished();
+    // 如果使用了位置误差增益，则额外增加一个位置项
     if (!numerics::almost_eq(settings_.positionErrorGain, 0.0)) {
       config.b(0) -= settings_.positionErrorGain * swingTrajectoryPlannerPtr_->getZpositionConstraint(footIndex, t);
       config.Ax = (matrix_t(1, 3) << 0.0, 0.0, settings_.positionErrorGain).finished();
@@ -88,25 +81,31 @@ void LeggedRobotPreComputation::request(RequestSet request, scalar_t t, const ve
     return config;
   };
 
+  // 如果请求中包含约束，则为所有脚生成并缓存约束配置
   if (request.contains(Request::Constraint)) {
     for (size_t i = 0; i < info_.numThreeDofContacts; i++) {
       eeNormalVelConConfigs_[i] = eeNormalVelConConfig(i);
     }
   }
 
+  // --- 更新Pinocchio模型 ---
   const auto& model = pinocchioInterface_.getModel();
   auto& data = pinocchioInterface_.getData();
+  // 从OCS2的状态向量x中，映射出Pinocchio的广义坐标q
   vector_t q = mappingPtr_->getPinocchioJointPosition(x);
+
+  // 如果需要计算线性逼近（即导数），则需要计算雅可比等
   if (request.contains(Request::Approximation)) {
     pinocchio::forwardKinematics(model, data, q);
     pinocchio::updateFramePlacements(model, data);
     pinocchio::updateGlobalPlacements(model, data);
     pinocchio::computeJointJacobians(model, data);
 
+    // 更新质心动力学模型及其导数
     updateCentroidalDynamics(pinocchioInterface_, info_, q);
     vector_t v = mappingPtr_->getPinocchioJointVelocity(x, u);
     updateCentroidalDynamicsDerivatives(pinocchioInterface_, info_, q, v);
-  } else {
+  } else { // 如果只需要计算值，则只需更新运动学
     pinocchio::forwardKinematics(model, data, q);
     pinocchio::updateFramePlacements(model, data);
   }

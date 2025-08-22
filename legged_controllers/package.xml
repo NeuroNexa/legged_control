@@ -1,15 +1,25 @@
 <?xml version="1.0"?>
+<!-- package.xml是ROS包的清单文件，用于定义包的属性 -->
 <package format="2">
+    <!-- 包名 -->
     <name>legged_controllers</name>
+    <!-- 版本号 -->
     <version>0.0.0</version>
+    <!-- 包的简短描述 -->
     <description>The legged_controllers packages.</description>
+    <!-- 维护者信息 -->
     <maintainer email="liaoqiayuan@gmail.com">Qiayuan Liao</maintainer>
+    <!-- 许可证信息 -->
     <license>BSD</license>
+    <!-- 作者信息 -->
     <author email="liaoqiayuan@gmail.com">Qiayuan Liao</author>
 
+    <!-- 构建工具依赖 -->
     <buildtool_depend>catkin</buildtool_depend>
 
+    <!-- 构建依赖 -->
     <build_depend>cmake_clang_tools</build_depend>
+    <!-- 通用依赖，编译和运行时都需要 -->
     <depend>roscpp</depend>
     <depend>legged_common</depend>
     <depend>legged_interface</depend>
@@ -22,9 +32,12 @@
 
     <depend>angles</depend>
 
+    <!-- 运行依赖，仅在运行时需要 -->
     <exec_depend>controller_manager</exec_depend>
 
+    <!-- 导出标签 -->
     <export>
+        <!-- 导出controller_interface插件，使其可被controller_manager发现 -->
         <controller_interface plugin="${prefix}/legged_controllers_plugins.xml"/>
     </export>
 </package>

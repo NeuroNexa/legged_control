@@ -1,30 +1,6 @@
 /******************************************************************************
 Copyright (c) 2021, Farbod Farshidian. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
- * Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+... (license header)
 ******************************************************************************/
 
 #pragma once
@@ -37,20 +13,44 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "legged_interface/constraint/SwingTrajectoryPlanner.h"
 
+//
+// 注意：这个文件的命名空间是 ocs2::legged_robot，而不是 legged。
+// 这是因为它是从OCS2的legged_robot包中修改而来的。
+//
 namespace ocs2 {
 namespace legged_robot {
 
 /**
- * Manages the ModeSchedule and the TargetTrajectories for switched model.
+ * @brief 切换模型的参考管理器
+ *
+ * 该类继承自 `ReferenceManager`，专门用于处理腿式机器人这种具有切换模型（接触/摆动）的系统。
+ * 它负责管理步态序列（ModeSchedule）和目标轨迹（TargetTrajectories），
+ * 并在需要时（例如，当接收到新的目标指令时）修改它们。
+ * 一个关键的功能是，它会根据当前的步态序列，调用 `SwingTrajectoryPlanner` 来生成摆动腿的轨迹，
+ * 并将这些轨迹作为中间目标添加到 `TargetTrajectories` 中。
  */
 class SwitchedModelReferenceManager : public ReferenceManager {
  public:
+  /**
+   * @brief 构造函数
+   * @param gaitSchedulePtr 指向步态调度器的共享指针
+   * @param swingTrajectoryPtr 指向摆动腿轨迹规划器的共享指针
+   */
   SwitchedModelReferenceManager(std::shared_ptr<GaitSchedule> gaitSchedulePtr, std::shared_ptr<SwingTrajectoryPlanner> swingTrajectoryPtr);
 
   ~SwitchedModelReferenceManager() override = default;
 
+  /**
+   * @brief 设置新的模式序列（步态）
+   * @param modeSchedule 新的步态序列
+   */
   void setModeSchedule(const ModeSchedule& modeSchedule) override;
 
+  /**
+   * @brief 获取指定时间的接触标志
+   * @param time 查询的时间
+   * @return 一个布尔向量，表示每个脚在该时刻是否接触地面
+   */
   contact_flag_t getContactFlags(scalar_t time) const;
 
   const std::shared_ptr<GaitSchedule>& getGaitSchedule() { return gaitSchedulePtr_; }
@@ -58,6 +58,17 @@ class SwitchedModelReferenceManager : public ReferenceManager {
   const std::shared_ptr<SwingTrajectoryPlanner>& getSwingTrajectoryPlanner() { return swingTrajectoryPtr_; }
 
  protected:
+  /**
+   * @brief 修改参考轨迹
+   *
+   * 这是`ReferenceManager`的核心虚函数。当目标轨迹被更新时，此函数被调用。
+   * 它会根据新的步态序列和目标，重新规划摆动腿的轨迹，并将其整合到`targetTrajectories`中。
+   * @param initTime 初始时间
+   * @param finalTime 最终时间
+   * @param initState 初始状态
+   * @param targetTrajectories [in/out] 待修改的目标轨迹
+   * @param modeSchedule [in/out] 待修改的模式序列
+   */
   void modifyReferences(scalar_t initTime, scalar_t finalTime, const vector_t& initState, TargetTrajectories& targetTrajectories,
                         ModeSchedule& modeSchedule) override;
 

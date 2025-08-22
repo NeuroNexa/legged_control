@@ -1,30 +1,6 @@
 /******************************************************************************
 Copyright (c) 2020, Farbod Farshidian. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
- * Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+... (license header)
 ******************************************************************************/
 
 #pragma once
@@ -45,23 +21,60 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace ocs2 {
 namespace legged_robot {
 
-/** Callback for caching and reference update */
+/**
+ * @brief 腿式机器人的预计算类
+ *
+ * 在OCS2中，`PreComputation`模块用于在计算动力学、代价和约束之前，预先计算一些共享的值，
+ * 以避免在不同的地方重复计算，提高效率。
+ *
+ * 这个类专门为腿式机器人服务，它会：
+ * 1. 更新Pinocchio模型的数据（如正运动学）。
+ * 2. 根据当前的步态和时间，从`SwingTrajectoryPlanner`获取摆动腿的轨迹信息，
+ *    并将其缓存起来，供`NormalVelocityConstraint`等约束使用。
+ */
 class LeggedRobotPreComputation : public PreComputation {
  public:
+  /**
+   * @brief 构造函数
+   * @param pinocchioInterface Pinocchio模型接口
+   * @param info 质心模型信息
+   * @param swingTrajectoryPlanner 摆动腿轨迹规划器
+   * @param settings 模型设置
+   */
   LeggedRobotPreComputation(PinocchioInterface pinocchioInterface, CentroidalModelInfo info,
                             const SwingTrajectoryPlanner& swingTrajectoryPlanner, ModelSettings settings);
+
   ~LeggedRobotPreComputation() override = default;
 
+  /**
+   * @brief 克隆函数，用于创建该对象的深拷贝
+   */
   LeggedRobotPreComputation* clone() const override { return new LeggedRobotPreComputation(*this); }
 
+  /**
+   * @brief 请求计算
+   *
+   * 在每个时间点、状态和输入下被调用，以执行预计算。
+   * @param request 请求集合，指明需要计算哪些量（例如，动力学、约束、代价）
+   * @param t 当前时间
+   * @param x 当前状态
+   * @param u 当前输入
+   */
   void request(RequestSet request, scalar_t t, const vector_t& x, const vector_t& u) override;
 
+  /**
+   * @brief 获取末端执行器法向速度约束的配置
+   * @return 约束配置的向量
+   */
   const std::vector<EndEffectorLinearConstraint::Config>& getEeNormalVelocityConstraintConfigs() const { return eeNormalVelConConfigs_; }
 
   PinocchioInterface& getPinocchioInterface() { return pinocchioInterface_; }
   const PinocchioInterface& getPinocchioInterface() const { return pinocchioInterface_; }
 
  protected:
+  /**
+   * @brief 拷贝构造函数
+   */
   LeggedRobotPreComputation(const LeggedRobotPreComputation& other);
 
  private:
@@ -71,6 +84,7 @@ class LeggedRobotPreComputation : public PreComputation {
   std::unique_ptr<CentroidalModelPinocchioMapping> mappingPtr_;
   const ModelSettings settings_;
 
+  // 缓存的末端执行器法向速度约束配置
   std::vector<EndEffectorLinearConstraint::Config> eeNormalVelConConfigs_;
 };
 

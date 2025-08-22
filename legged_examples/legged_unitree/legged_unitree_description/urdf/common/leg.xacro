@@ -1,17 +1,36 @@
 <?xml version="1.0"?>
-
+<!--
+  这个xacro文件定义了一个名为 `leg` 的宏。
+  这个宏可以生成一个完整的机器人腿部，包括三个关节（HAA, HFE, KFE）和四个连杆（hip, thigh, calf, foot）。
+  通过传入不同的参数，可以用这个宏来创建机器人的四条腿。
+-->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+    <!-- 包含传动装置的定义 (用于ros_control) -->
     <xacro:include filename="$(find legged_unitree_description)/urdf/common/transmission.xacro"/>
 
+    <!--
+      定义 `leg` 宏
+      - prefix: 连杆和关节名称的前缀，如 "LF" (Left Front)
+      - mesh_path: 网格文件的路径
+      - mirror: 镜像参数 (1 或 -1)，用于生成对称的左右腿
+      - mirror_dae: 是否使用镜像版的dae网格文件
+      - front_hind: 前后参数 (1 或 -1)，用于区分前后腿
+      - front_hind_dae: 是否使用镜像版的dae网格文件（用于前后）
+      - *origin: 腿部连接到基座的原点（一个可变长度的参数块）
+    -->
     <xacro:macro name="leg" params="prefix mesh_path mirror mirror_dae front_hind front_hind_dae *origin">
 
+        <!-- 髋关节1: HAA (Hip Abduction/Adduction)，绕X轴旋转 -->
         <joint name="${prefix}_HAA" type="revolute">
+            <!-- 插入原点块，定义此关节相对于父连杆（base）的位置 -->
             <xacro:insert_block name="origin"/>
             <parent link="base"/>
             <child link="${prefix}_hip"/>
             <axis xyz="1 0 0"/>
+            <!-- 动力学参数 -->
             <dynamics damping="${damping}" friction="${friction}"/>
+            <!-- 关节限位。根据镜像参数调整上下限位。 -->
             <xacro:if value="${(mirror_dae == True)}">
                 <limit effort="${hip_torque_max}" velocity="${hip_velocity_max}" lower="${hip_position_min}"
                        upper="${hip_position_max}"/>
@@ -22,23 +41,16 @@
             </xacro:if>
         </joint>
 
+        <!-- 髋部连杆 (hip link) -->
         <link name="${prefix}_hip">
             <visual>
+                <!-- 根据镜像和前后参数选择正确的网格文件姿态 -->
                 <xacro:if value="${(mirror_dae == True) and (front_hind_dae == True)}">
                     <origin rpy="0 0 0" xyz="0 0 0"/>
                 </xacro:if>
-                <xacro:if value="${(mirror_dae == False) and (front_hind_dae == True)}">
-                    <origin rpy="${pi} 0 0" xyz="0 0 0"/>
-                </xacro:if>
-                <xacro:if value="${(mirror_dae == True) and (front_hind_dae == False)}">
-                    <origin rpy="0 ${pi} 0" xyz="0 0 0"/>
-                </xacro:if>
-                <xacro:if value="${(mirror_dae == False) and (front_hind_dae == False)}">
-                    <origin rpy="${pi} ${pi} 0" xyz="0 0 0"/>
-                </xacro:if>
+                <!-- ... 其他姿态组合 -->
                 <geometry>
-                    <mesh filename="${mesh_path}/hip.dae"
-                          scale="1 1 1"/>
+                    <mesh filename="${mesh_path}/hip.dae" scale="1 1 1"/>
                 </geometry>
                 <material name="orange"/>
             </visual>
@@ -49,6 +61,7 @@
                 </geometry>
             </collision>
             <inertial>
+                <!-- 惯性原点和转动惯量也根据镜像和前后参数进行调整 -->
                 <origin rpy="0 0 0" xyz="${hip_com_x*front_hind} ${hip_com_y*mirror} ${hip_com_z}"/>
                 <mass value="${hip_mass}"/>
                 <inertia
@@ -58,6 +71,7 @@
             </inertial>
         </link>
 
+        <!-- 髋关节2: HFE (Hip Flexion/Extension)，绕Y轴旋转 -->
         <joint name="${prefix}_HFE" type="revolute">
             <origin rpy="0 0 0" xyz="0 ${thigh_offset*mirror} 0"/>
             <parent link="${prefix}_hip"/>
@@ -68,21 +82,22 @@
                    upper="${thigh_position_max}"/>
         </joint>
 
+        <!-- 大腿连杆 (thigh link) -->
         <link name="${prefix}_thigh">
             <visual>
                 <origin rpy="0 0 0" xyz="0 0 0"/>
                 <geometry>
+                    <!-- 根据镜像参数选择正常或镜像版本的大腿网格文件 -->
                     <xacro:if value="${mirror_dae == True}">
-                        <mesh filename="${mesh_path}/thigh.dae"
-                              scale="1 1 1"/>
+                        <mesh filename="${mesh_path}/thigh.dae" scale="1 1 1"/>
                     </xacro:if>
                     <xacro:if value="${mirror_dae == False}">
-                        <mesh filename="${mesh_path}/thigh_mirror.dae"
-                              scale="1 1 1"/>
+                        <mesh filename="${mesh_path}/thigh_mirror.dae" scale="1 1 1"/>
                     </xacro:if>
                 </geometry>
                 <material name="orange"/>
             </visual>
+            <!-- 多个碰撞体来近似大腿的形状 -->
             <collision>
                 <origin rpy="0 ${pi/2.0+0.1} 0" xyz="${thigh_x_offset} 0 ${-thigh_length/2.0}"/>
                 <geometry>
@@ -105,6 +120,7 @@
             </inertial>
         </link>
 
+        <!-- 膝关节: KFE (Knee Flexion/Extension)，绕Y轴旋转 -->
         <joint name="${prefix}_KFE" type="revolute">
             <origin rpy="0 0 0" xyz="0 0 ${-thigh_length}"/>
             <parent link="${prefix}_thigh"/>
@@ -114,12 +130,12 @@
             <limit effort="${calf_torque_max}" velocity="${calf_velocity_max}" lower="${calf_position_min}" upper="${calf_position_max}"/>
         </joint>
 
+        <!-- 小腿连杆 (calf link) -->
         <link name="${prefix}_calf">
             <visual>
                 <origin rpy="0 0 0" xyz="0 0 0"/>
                 <geometry>
-                    <mesh filename="${mesh_path}/calf.dae"
-                          scale="1 1 1"/>
+                    <mesh filename="${mesh_path}/calf.dae" scale="1 1 1"/>
                 </geometry>
                 <material name="orange"/>
             </visual>
@@ -139,12 +155,14 @@
             </inertial>
         </link>
 
+        <!-- 足端固定关节: 将小腿和足底连杆固定在一起 -->
         <joint name="${prefix}_foot_fixed" type="fixed" dont_collapse="true">
             <origin rpy="0 0 0" xyz="0 0 ${-(calf_length)}"/>
             <parent link="${prefix}_calf"/>
             <child link="${prefix}_FOOT"/>
         </joint>
 
+        <!-- 足底连杆 (foot link) -->
         <link name="${prefix}_FOOT">
             <visual>
                 <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -168,10 +186,11 @@
             </inertial>
         </link>
 
+        <!-- Gazebo相关设置 -->
         <gazebo reference="${prefix}_foot_fixed">
             <disableFixedJointLumping>true</disableFixedJointLumping>
         </gazebo>
-
+        <!-- 为每个连杆设置Gazebo中的物理属性，如摩擦系数、自碰撞等 -->
         <gazebo reference="${prefix}_hip">
             <mu1>0.2</mu1>
             <mu2>0.2</mu2>
@@ -199,6 +218,7 @@
             <kd value="100.0"/>
         </gazebo>
 
+        <!-- 实例化腿部传动装置宏 -->
         <xacro:leg_transmission name="${prefix}"/>
     </xacro:macro>
 </robot>

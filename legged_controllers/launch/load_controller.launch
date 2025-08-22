@@ -1,18 +1,41 @@
 <?xml version="1.0" ?>
 
+<!--
+这是一个ROS启动文件，用于加载和配置腿式机器人的控制器。
+它负责将所有必要的配置文件加载到参数服务器，并启动controller_manager来加载控制器插件。
+-->
 <launch>
+    <!--
+    定义一个参数 `robot_type`，用于指定机器人类型。
+    默认值从环境变量 `ROBOT_TYPE` 获取。
+    -->
     <arg name="robot_type" default="$(env ROBOT_TYPE)" doc="Robot type: [a1, aliengo, go1, laikago]"/>
 
+    <!--
+    定义一个参数 `cheater`，用于决定是否使用“作弊”控制器。
+    作弊控制器直接从仿真中获取真实状态，用于调试。默认为false。
+    -->
     <arg name="cheater" default="false"/>
 
-    <!-- make the files into global parameters -->
+    <!-- 将URDF和OCS2任务配置文件的路径加载为全局ROS参数 -->
+    <!-- URDF文件路径。注意：它指向一个在/tmp目录下的临时文件，这个文件通常由另一个脚本（如generate_urdf.sh）生成。 -->
     <param name="urdfFile" value="/tmp/legged_control/$(arg robot_type).urdf"/>
+    <!-- OCS2任务配置文件路径 (包含代价函数权重、约束等) -->
     <param name="taskFile" value="$(find legged_controllers)/config/$(arg robot_type)/task.info"/>
+    <!-- OCS2参考状态配置文件路径 (包含默认姿态、目标速度等) -->
     <param name="referenceFile" value="$(find legged_controllers)/config/$(arg robot_type)/reference.info"/>
+    <!-- 步态指令配置文件路径 -->
     <param name="gaitCommandFile" value="$(find legged_controllers)/config/$(arg robot_type)/gait.info"/>
 
+    <!-- 加载控制器定义文件 (controllers.yaml) 到参数服务器 -->
     <rosparam file="$(find legged_controllers)/config/controllers.yaml" command="load"/>
 
+    <!--
+    启动`controller_manager`节点来加载控制器。
+    `if` 和 `unless` 属性用于根据 `cheater` 参数的值选择加载哪个控制器组合。
+    -->
+
+    <!-- 如果 `cheater` 参数为 true，则加载作弊控制器 -->
     <node if="$(arg cheater)" name="controller_loader" pkg="controller_manager" type="controller_manager"
           output="screen" args="load
           controllers/joint_state_controller
@@ -20,15 +43,18 @@
           controllers/legged_cheater_controller
 "/>
 
+    <!-- 如果 `cheater` 参数为 false (默认情况)，则不加载作弊控制器 -->
     <node unless="$(arg cheater)" name="controller_loader" pkg="controller_manager" type="controller_manager"
           output="screen" args="load
           controllers/joint_state_controller
           controllers/legged_controller
 "/>
 
+    <!-- 启动步态指令节点，该节点允许用户通过终端交互式地切换步态 -->
     <node pkg="ocs2_legged_robot_ros" type="legged_robot_gait_command" name="legged_robot_gait_command"
           output="screen"/>
 
+    <!-- 启动目标轨迹发布器节点，该节点将/cmd_vel和/move_base_simple/goal指令转换为MPC的目标轨迹 -->
     <node pkg="legged_controllers" type="legged_target_trajectories_publisher" name="legged_robot_target"
           output="screen"/>
 </launch>

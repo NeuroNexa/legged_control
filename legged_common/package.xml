@@ -1,19 +1,29 @@
 <?xml version="1.0"?>
+<!-- package.xml是ROS包的清单文件，用于定义包的属性 -->
 <package format="2">
+    <!-- 包名 -->
     <name>legged_common</name>
+    <!-- 版本号 -->
     <version>0.0.0</version>
+    <!-- 包的简短描述 -->
     <description>The legged_common package</description>
 
+    <!-- 维护者信息 -->
     <maintainer email="liaoqiayuan@gmail.com">qiayuan</maintainer>
 
+    <!-- 许可证信息 -->
     <license>BSD</license>
 
+    <!-- 构建工具依赖 -->
     <buildtool_depend>catkin</buildtool_depend>
 
+    <!-- 构建依赖，在编译时需要 -->
     <build_depend>cmake_clang_tools</build_depend>
+    <!-- 通用依赖，在编译和运行时都需要 -->
     <depend>roscpp</depend>
     <depend>hardware_interface</depend>
 
+    <!-- 导出标签，用于向其他包提供信息 -->
     <export>
 
     </export>

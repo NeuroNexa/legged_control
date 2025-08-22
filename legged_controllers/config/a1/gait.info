@@ -1,25 +1,44 @@
+# 这是一个步态定义文件。
+# 它首先列出了所有可用的步态名称，然后为每个步态定义了详细的参数。
+# 步态定义了在整个周期中，哪些脚（或脚的组合）应该与地面接触。
+# LF: Left Foreleg (左前腿)
+# RF: Right Foreleg (右前腿)
+# LH: Left Hindleg (左后腿)
+# RH: Right Hindleg (右后腿)
+# STANCE: 四足都着地
+# FLY: 四足都离地
+
+# 可用步态列表
 list
 {
-  [0] stance
-  [1] trot
-  [2] standing_trot
-  [3] flying_trot
-  [4] pace
-  [5] standing_pace
-  [6] dynamic_walk
-  [7] static_walk
-  [8] amble
-  [9] lindyhop
-  [10] skipping
-  [11] pawup
+  [0] stance        # 站立
+  [1] trot          # 对角快步
+  [2] standing_trot # 站立式对角快步
+  [3] flying_trot   # 飞行式对角快步
+  [4] pace          # 同侧快步
+  [5] standing_pace # 站立式同侧快步
+  [6] dynamic_walk  # 动态行走
+  [7] static_walk   # 静态行走
+  [8] amble         # 溜蹄
+  [9] lindyhop      # 林迪舞步
+  [10] skipping     # 跳跃
+  [11] pawup        # 抬爪
 }
 
+# --- 步态定义 ---
+
+# 站立 (stance)
 stance
  {
+   # 模式序列：定义了在一个周期内，支撑相的组合
+   # STANCE 表示四条腿都着地
    modeSequence
    {
      [0]     STANCE
    }
+   # 切换时间：定义了每个模式的开始和结束时间（归一化到周期长度）
+   # [0] 0.0 是周期的开始
+   # [1] 0.5 是周期的结束
    switchingTimes
    {
      [0]     0.0
@@ -27,6 +46,9 @@ stance
    }
 }
 
+# 对角快步 (trot)
+# LF_RH: 左前腿和右后腿同时着地
+# RF_LH: 右前腿和左后腿同时着地
 trot
  {
    modeSequence
@@ -36,12 +58,14 @@ trot
    }
    switchingTimes
    {
-     [0]     0.0
-     [1]     0.3
-     [2]     0.6
+     [0]     0.0  # 周期开始，LF_RH支撑相开始
+     [1]     0.3  # LF_RH支撑相结束, RF_LH支撑相开始
+     [2]     0.6  # 周期结束 (总时长0.6)
    }
 }
 
+# 站立式对角快步 (standing_trot)
+# 在对角腿切换之间插入了四足站立的阶段
 standing_trot
 {
   modeSequence
@@ -53,14 +77,16 @@ standing_trot
   }
   switchingTimes
   {
-    [0]     0.00
-    [1]     0.25
-    [2]     0.3
-    [3]     0.55
-    [4]     0.6
+    [0]     0.00  # LF_RH
+    [1]     0.25  # STANCE
+    [2]     0.3   # RF_LH
+    [3]     0.55  # STANCE
+    [4]     0.6   # 周期结束
   }
 }
 
+# 飞行式对角快步 (flying_trot)
+# 在对角腿切换之间插入了四足腾空的阶段
 flying_trot
 {
   modeSequence
@@ -72,14 +98,17 @@ flying_trot
   }
   switchingTimes
   {
-    [0]     0.00
-    [1]     0.15
-    [2]     0.2
-    [3]     0.35
-    [4]     0.4
+    [0]     0.00  # LF_RH
+    [1]     0.15  # FLY
+    [2]     0.2   # RF_LH
+    [3]     0.35  # FLY
+    [4]     0.4   # 周期结束
   }
 }
 
+# 同侧快步 (pace)
+# LF_LH: 左前腿和左后腿同时着地
+# RF_RH: 右前腿和右后腿同时着地
 pace
 {
   modeSequence
@@ -99,6 +128,7 @@ pace
   }
 }
 
+# 站立式同侧快步 (standing_pace)
 standing_pace
 {
   modeSequence
@@ -118,16 +148,18 @@ standing_pace
   }
 }
 
+# 动态行走 (dynamic_walk)
+# 这是一个更复杂的步态，包含三足支撑相
 dynamic_walk
 {
   modeSequence
   {
-    [0]     LF_RF_RH
-    [1]     RF_RH
-    [2]     RF_LH_RH
-    [3]     LF_RF_LH
-    [4]     LF_LH
-    [5]     LF_LH_RH
+    [0]     LF_RF_RH  # 左后腿摆动
+    [1]     RF_RH     # 左前和左后腿摆动 (对角线) - 这似乎不太稳定，可能是笔误或特定定义
+    [2]     RF_LH_RH  # 左前腿摆动
+    [3]     LF_RF_LH  # 右后腿摆动
+    [4]     LF_LH     # 右前和右后腿摆动 (对角线)
+    [5]     LF_LH_RH  # 右前腿摆动
   }
   switchingTimes
   {
@@ -141,14 +173,16 @@ dynamic_walk
   }
 }
 
+# 静态行走 (static_walk)
+# 始终保持三足支撑，保证稳定性
 static_walk
 {
   modeSequence
   {
-    [0]     LF_RF_RH
-    [1]     RF_LH_RH
-    [2]     LF_RF_LH
-    [3]     LF_LH_RH
+    [0]     LF_RF_RH  # 左后腿摆动
+    [1]     RF_LH_RH  # 左前腿摆动
+    [2]     LF_RF_LH  # 右后腿摆动
+    [3]     LF_LH_RH  # 右前腿摆动
   }
   switchingTimes
   {
@@ -160,6 +194,7 @@ static_walk
   }
 }
 
+# 溜蹄 (amble)
 amble
 {
   modeSequence
@@ -179,6 +214,8 @@ amble
   }
 }
 
+# 林迪舞步 (lindyhop)
+# 一种复杂的、有节奏的步态
 lindyhop
 {
   modeSequence
@@ -193,8 +230,8 @@ lindyhop
     [7]     STANCE
     [8]     RF_RH
     [9]     LF_LH
-    [10]     RF_RH
-    [11]     STANCE
+    [10]    RF_RH
+    [11]    STANCE
   }
   switchingTimes
   {
@@ -214,6 +251,7 @@ lindyhop
   }
 }
 
+# 跳跃 (skipping)
 skipping
 {
   modeSequence
@@ -241,6 +279,8 @@ skipping
   }
 }
 
+# 抬起一只爪子 (pawup)
+# 这里是抬起左前腿 (LF)
 pawup
 {
    modeSequence

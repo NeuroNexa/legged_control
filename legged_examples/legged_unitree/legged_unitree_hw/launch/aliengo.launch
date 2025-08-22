@@ -1,4 +1,15 @@
+<!--
+  这是Aliengo机器人的特定硬件启动文件。
+-->
 <launch>
+    <!--
+      启动硬件接口节点。
+      这个节点负责与Aliengo机器人的底层SDK进行通信。
+      - pkg: "legged_unitree_hw"
+      - type: "legged_unitree_hw_3_3_1"。注意，这里指定了使用为SDK 3.3.1编译的可执行文件。
+      - respawn="false": 如果节点意外退出，不自动重启。
+      - clear_params="true": 在启动前清除节点的私有参数。
+    -->
     <node name="legged_unitree_hw" pkg="legged_unitree_hw" type="legged_unitree_hw_3_3_1" respawn="false"
           clear_params="true"/>
 </launch>

@@ -1,17 +1,28 @@
 <?xml version="1.0" ?>
 
+<!-- 这是一个ROS启动文件，用于启动手柄遥控功能 -->
 <launch>
+    <!-- 定义一个参数 `joy_dev`，表示手柄设备的路径，默认为/dev/input/js0 -->
     <arg name="joy_dev" default="/dev/input/js0"/>
+    <!-- 定义一个参数 `teleop_config`，表示遥控配置文件的路径 -->
     <arg name="teleop_config" default="$(find legged_controllers)/config/joy.yaml"/>
 
+    <!-- 启动 `joy_node` 节点，它负责读取手柄的原始数据并发布为 /joy 话题 -->
     <node pkg="joy" type="joy_node" name="joy_node">
+        <!-- 设置手柄设备路径 -->
         <param name="dev" value="$(arg joy_dev)"/>
+        <!-- 设置摇杆的死区，避免摇杆在中间位置时仍有微小输出 -->
         <param name="deadzone" value="1e-3"/>
+        <!-- 设置按钮的自动重复频率 -->
         <param name="autorepeat_rate" value="10"/>
+        <!-- 设置消息合并的时间间隔，以减少发布频率 -->
         <param name="coalesce_interval" value="0.05"/>
     </node>
 
+    <!-- 加载遥控配置文件 `joy.yaml` 到参数服务器 -->
     <rosparam file="$(arg teleop_config)" command="load"/>
+    <!-- 启动 `joy_teleop` 节点，它会订阅 /joy 话题，
+         并根据加载的配置（joy.yaml）将手柄输入转换为 `cmd_vel` 等指令 -->
     <node pkg="joy_teleop" type="joy_teleop.py" name="joy_teleop">
     </node>
 

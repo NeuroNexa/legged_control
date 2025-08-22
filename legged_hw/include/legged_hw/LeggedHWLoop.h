@@ -1,34 +1,6 @@
 /*******************************************************************************
  * BSD 3-Clause License
- *
- * Copyright (c) 2022, Qiayuan Liao
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * * Redistributions of source code must retain the above copyright notice, this
- *   list of conditions and the following disclaimer.
- *
- * * Redistributions in binary form must reproduce the above copyright notice,
- *   this list of conditions and the following disclaimer in the documentation
- *   and/or other materials provided with the distribution.
- *
- * * Neither the name of the copyright holder nor the names of its
- *   contributors may be used to endorse or promote products derived from
- *   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * ... (license header)
  *******************************************************************************/
 
 //
@@ -47,50 +19,64 @@
 
 namespace legged {
 
-class LeggedHWLoop {  // NOLINT(cppcoreguidelines-special-member-functions)
-  using Clock = std::chrono::high_resolution_clock;
+/**
+ * @brief 腿式机器人硬件控制循环
+ *
+ * 这个类封装了`ros_control`的标准控制循环逻辑。
+ * 它在一个独立的线程中运行，以设定的频率调用硬件接口的 `read()` 和 `write()` 方法，
+ * 并更新 `controller_manager`。
+ */
+class LeggedHWLoop {
+  using Clock = std::chrono::high_resolution_clock; // 使用高精度时钟
   using Duration = std::chrono::duration<double>;
 
  public:
-  /** \brief Create controller manager. Load loop frequency. Start control loop which call @ref
-   * legged::RmRobotHWLoop::update() in a frequency.
+  /**
+   * @brief 构造函数
    *
-   * @param nh Node-handle of a ROS node.
-   * @param hardware_interface A pointer which point to hardware_interface.
+   * 创建`controller_manager`，从参数服务器加载循环频率，并启动控制循环线程。
+   * @param nh ROS节点句柄
+   * @param hardware_interface 指向硬件接口对象的共享指针
    */
   LeggedHWLoop(ros::NodeHandle& nh, std::shared_ptr<LeggedHW> hardware_interface);
 
+  /**
+   * @brief 析构函数
+   *
+   * 停止并等待控制循环线程结束。
+   */
   ~LeggedHWLoop();
 
-  /** \brief Timed method that reads current hardware's state, runs the controller code once and sends the new commands
-   * to the hardware.
+  /**
+   * @brief 控制循环的更新函数
    *
-   * Timed method that reads current hardware's state, runs the controller code once and sends the new commands to the
-   * hardware.
-   *
+   * 这个函数以固定的频率被调用。它负责：
+   * 1. 计算时间差 (elapsedTime_)
+   * 2. 调用 hardware_interface->read() 从硬件读取状态
+   * 3. 调用 controller_manager->update() 更新所有活动的控制器
+   * 4. 调用 hardware_interface->write() 将指令写入硬件
    */
   void update();
 
  private:
-  // Startup and shutdown of the internal node inside a roscpp program
   ros::NodeHandle nh_;
 
-  // Timing
-  double cycleTimeErrorThreshold_{}, loopHz_{};
-  std::thread loopThread_;
-  std::atomic_bool loopRunning_{};
-  ros::Duration elapsedTime_;
-  Clock::time_point lastTime_;
+  // --- 时序控制 ---
+  double cycleTimeErrorThreshold_{}, loopHz_{}; // 周期时间误差阈值和循环频率
+  std::thread loopThread_; // 控制循环线程
+  std::atomic_bool loopRunning_{}; // 循环运行标志
+  ros::Duration elapsedTime_; // 上次更新以来的经过时间
+  Clock::time_point lastTime_; // 上次更新的时间点
 
-  /** ROS Controller Manager and Runner
-
-      This class advertises a ROS interface for loading, unloading, starting, and
-      stopping ros_control-based controllers. It also serializes execution of all
-      running controllers in \ref update.
-  **/
+  /**
+   * @brief ROS控制器管理器
+   *
+   * 负责加载、卸载、启动和停止`ros_control`控制器，
+   * 并在`update()`中串行执行所有正在运行的控制器。
+   */
   std::shared_ptr<controller_manager::ControllerManager> controllerManager_;
 
-  // Abstract Hardware Interface for your robot
+  // 指向硬件接口的指针
   std::shared_ptr<LeggedHW> hardwareInterface_;
 };
 

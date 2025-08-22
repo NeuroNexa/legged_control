@@ -1,3 +1,13 @@
+# 这是Go1机器人的步态定义文件。
+# Go1的步态参数与A1在此文件中完全相同。
+# LF: Left Foreleg (左前腿)
+# RF: Right Foreleg (右前腿)
+# LH: Left Hindleg (左后腿)
+# RH: Right Hindleg (右后腿)
+# STANCE: 四足都着地
+# FLY: 四足都离地
+
+# 可用步态列表
 list
 {
   [0] stance
@@ -13,6 +23,8 @@ list
   [10] skipping
   [11] pawup
 }
+
+# --- 步态定义 ---
 
 stance
  {

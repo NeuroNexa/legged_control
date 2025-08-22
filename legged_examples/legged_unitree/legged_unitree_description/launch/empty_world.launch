@@ -1,17 +1,37 @@
+<!-- 这是一个ROS启动文件，用于在Gazebo仿真环境中启动一个空的带机器人的世界 -->
 <launch>
+    <!-- 定义机器人类型参数，默认从环境变量ROBOT_TYPE获取 -->
     <arg name="robot_type" default="$(env ROBOT_TYPE)" doc="Robot type: [a1, aliengo, go1, laikago]"/>
 
+    <!--
+      使用xacro命令处理robot.xacro文件，生成完整的URDF。
+      `robot_type`参数被传递给xacro，以便它能包含正确的机器人特定文件。
+      生成的URDF内容被加载到ROS参数服务器的`legged_robot_description`参数中。
+    -->
     <param name="legged_robot_description" command="$(find xacro)/xacro $(find legged_unitree_description)/urdf/robot.xacro
        robot_type:=$(arg robot_type)
     "/>
+
+    <!--
+      运行一个脚本，该脚本同样使用xacro生成URDF，但将其保存到一个临时文件中。
+      这个临时文件将被OCS2等其他节点读取。
+    -->
     <node name="generate_urdf" pkg="legged_common" type="generate_urdf.sh" output="screen"
           args="$(find legged_unitree_description)/urdf/robot.xacro $(arg robot_type)"/>
 
+    <!-- 加载Gazebo的默认配置 -->
     <rosparam file="$(find legged_gazebo)/config/default.yaml" command="load"/>
+
+    <!-- 包含Gazebo ROS提供的`empty_world.launch`，这是启动Gazebo服务器和客户端的标准方式 -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <!-- 指定要加载的世界文件 -->
         <arg name="world_name" value="$(find legged_gazebo)/worlds/empty_world.world"/>
     </include>
-    <!-- push robot_description to factory and spawn robot in gazebo -->
+
+    <!--
+      启动`spawn_model`节点，它会从参数服务器读取`legged_robot_description`参数，
+      并将该URDF模型在Gazebo中生成（"spawn"）。
+    -->
     <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" clear_params="true"
           args="-z 0.5 -param legged_robot_description -urdf -model $(arg robot_type)" output="screen"/>
 

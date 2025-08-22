@@ -1,14 +1,37 @@
+<!--
+  这是一个顶层的启动文件，用于在真实硬件上启动Unitree机器人。
+  它的主要作用是根据传入的 `robot_type` 参数，加载对应的配置文件和启动文件。
+-->
 <launch>
+    <!-- 定义机器人类型参数，默认从环境变量ROBOT_TYPE获取 -->
     <arg name="robot_type" default="$(env ROBOT_TYPE)" doc="Robot type: [a1, aliengo, go1, laikago]"/>
 
+    <!--
+      加载并生成URDF。这与仿真启动文件中的步骤相同。
+      即使在真实硬件上，URDF对于OCS2和其他ROS节点也是必需的，因为它们需要机器人的运动学和动力学模型。
+    -->
     <param name="legged_robot_description" command="$(find xacro)/xacro $(find legged_unitree_description)/urdf/robot.xacro
        robot_type:=$(arg robot_type)
     "/>
     <node name="generate_urdf" pkg="legged_common" type="generate_urdf.sh" output="screen"
           args="$(find legged_unitree_description)/urdf/robot.xacro $(arg robot_type)"/>
 
+    <!--
+      加载对应机器人型号的硬件配置文件 (例如 a1.yaml, go1.yaml)。
+      这个文件包含了硬件接口的特定参数，如循环频率、功率限制等。
+    -->
     <rosparam file="$(find legged_unitree_hw)/config/$(arg robot_type).yaml" command="load"/>
 
+    <!--
+      将 `robot_type` 参数再次设置到参数服务器上。
+      这确保了被包含的启动文件可以访问到这个参数。
+    -->
     <param name="robot_type" value="$(arg robot_type)"/>
+
+    <!--
+      包含对应机器人型号的特定启动文件。
+      例如，如果 `robot_type` 是 "a1"，它将包含 `a1.launch` 文件。
+      这些特定启动文件负责启动与硬件通信的实际节点。
+    -->
     <include file="$(find legged_unitree_hw)/launch/$(arg robot_type).launch"/>
 </launch>

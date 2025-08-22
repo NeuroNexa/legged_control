@@ -1,26 +1,46 @@
 <?xml version="1.0"?>
+<!--
+  这个xacro文件为机器人模型配置Gazebo仿真插件。
+-->
 <robot>
-    <!-- ros_control plugin -->
+    <!-- ros_control 插件 -->
+    <!-- 这个插件是连接ROS Control框架和Gazebo的关键。
+         它加载一个自定义的硬件仿真接口（liblegged_hw_sim.so），
+         使得ros_control控制器可以像控制真实硬件一样控制Gazebo中的仿真模型。 -->
     <gazebo>
         <plugin name="gazebo_ros_control" filename="liblegged_hw_sim.so">
+            <!-- 机器人命名空间 -->
             <robotNamespace>/</robotNamespace>
+            <!-- 从参数服务器上读取机器人描述的参数名称 -->
             <robotParam>legged_robot_description</robotParam>
+            <!-- 自定义的硬件仿真接口的类型 -->
             <robotSimType>legged_gazebo/LeggedHWSim</robotSimType>
         </plugin>
     </gazebo>
 
+    <!-- P3D (Position 3D) 插件，用于发布地面真值（ground truth）-->
+    <!-- 这个插件直接从Gazebo的物理引擎中获取`base`连杆的精确位姿，
+         并将其发布为`nav_msgs/Odometry`消息。
+         这对于调试和“作弊”控制器（cheater controller）非常有用。 -->
     <gazebo>
         <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
+            <!-- 总是开启 -->
             <alwaysOn>true</alwaysOn>
+            <!-- 更新频率 (Hz) -->
             <updateRate>1000.0</updateRate>
+            <!-- 要跟踪的连杆名称 -->
             <bodyName>base</bodyName>
+            <!-- 发布里程计消息的话题名称 -->
             <topicName>ground_truth/state</topicName>
+            <!-- 高斯噪声大小，0表示无噪声 -->
             <gaussianNoise>0</gaussianNoise>
+            <!-- 位姿的参考坐标系 -->
             <frameName>world</frameName>
+            <!-- 位置偏移量 (m) -->
             <xyzOffsets>0 0 0</xyzOffsets>
+            <!-- 姿态偏移量 (rad) -->
             <rpyOffsets>0 0 0</rpyOffsets>
         </plugin>
     </gazebo>
-
 
 </robot>

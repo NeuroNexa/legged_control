@@ -1,20 +1,29 @@
 <?xml version="1.0" ?>
-
+<!--
+  这是一个SDF (Simulation Description Format) 文件，用于定义Gazebo中的世界。
+  这个文件描述了一个非常简单的世界，只包含物理引擎设置、一个光源和一个地面。
+-->
 <sdf version="1.5">
     <world name="default">
-        <!-- Target real time factor is the product of max_step_size and real_time_update_rate -->
-        <!-- Negative real_time_update_rate means that Gazebo will run as fast as possible -->
-        <physics type="ode">
+        <!-- 物理引擎设置 -->
+        <physics type="ode"> <!-- 使用ODE (Open Dynamics Engine) 作为物理引擎 -->
             <type>world</type>
+            <!-- 最大步长 (s)。物理引擎每次更新的时间间隔。 -->
             <max_step_size>0.001</max_step_size>
+            <!-- 实时更新率 (Hz)。Gazebo尝试以这个频率更新仿真。 -->
+            <!-- 实时因子 (Real Time Factor) 约等于 max_step_size * real_time_update_rate -->
+            <!-- 所以这里的设置目标是 0.001 * 1000 = 1.0，即实时运行。 -->
             <real_time_update_rate>1000</real_time_update_rate>
+            <!-- 迭代次数。每次步长中，约束求解器的迭代次数。值越高，仿真越精确但越慢。 -->
             <iters>500</iters>
         </physics>
-        <!-- A global light source -->
+
+        <!-- 包含一个全局光源模型 -->
         <include>
             <uri>model://sun</uri>
         </include>
-        <!-- A ground plane -->
+
+        <!-- 包含一个地面模型 -->
         <include>
             <uri>model://ground_plane</uri>
         </include>

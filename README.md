@@ -1,13 +1,17 @@
+<!-- 这是一个Markdown文件，所以注释将使用HTML风格 -->
+
 # legged_control
 
+<!-- 仓库维护状态注释 -->
 > [!NOTE]
 > **This software is not supported anymore! The authors of this software are developing a completely new framework and are not working on this project anymore. Please excuse any inconvenience this might cause.**
 
+<!-- 指向相关仓库的注释 -->
 > [!NOTE]
 > You might be interested in this pipeline with perception, check [legged_perceptive](https://github.com/qiayuanl/legged_perceptive).
 
 ## Publications
-
+<!-- 学术引用说明 -->
 If you use this work in an academic context, please consider citing the following publications:
 
     @misc{leggedcontrol,
@@ -26,7 +30,7 @@ If you use this work in an academic context, please consider citing the followin
     }
 
 ## Introduction
-
+<!-- 项目简介 -->
 legged_control is an NMPC-WBC legged robot control stack and framework based
 on [OCS2](https://github.com/leggedrobotics/ocs2) and [ros-control](http://wiki.ros.org/ros_control).
 
@@ -40,12 +44,14 @@ The advantage shows below:
 I believe this framework can provide a high-performance and easy-to-use model-based baseline for the legged robot
 community.
 
+<!-- 视频演示 -->
 https://user-images.githubusercontent.com/21256355/192135828-8fa7d9bb-9b4d-41f9-907a-68d34e6809d8.mp4
 
 ## Installation
+<!-- 安装指南 -->
 
 ### Source code
-
+<!-- 源码获取 -->
 The source code is hosted on GitHub: [qiayuanliao/legged_control](https://github.com/qiayuanliao/legged_control).
 
 ```
@@ -54,7 +60,7 @@ git clone git@github.com:qiayuanliao/legged_control.git
 ```
 
 ### OCS2
-
+<!-- OCS2 依赖安装 -->
 OCS2 is a huge monorepo; **DO NOT** try to compile the whole repo. You only need to compile `ocs2_legged_robot_ros` and
 its dependencies following the step below.
 
@@ -82,7 +88,7 @@ its dependencies following the step below.
    ![](https://leggedrobotics.github.io/ocs2/_images/legged_robot.gif)
 
 ### Build
-
+<!-- 编译指南 -->
 Build the source code of `legged_control` by:
 
 ```
@@ -103,6 +109,7 @@ catkin build legged_unitree_hw
 ```
 
 ## Quick Start
+<!-- 快速开始指南 -->
 
 1. Set your robot type as an environment variable: ROBOT_TYPE
 
@@ -152,7 +159,7 @@ rosrun rqt_controller_manager rqt_controller_manager
 ![ezgif-5-684a1e1e23.gif](https://s2.loli.net/2022/07/27/lBzdeRa1gmvwx9C.gif)
 
 ### Note
-
+<!-- 注意事项 -->
 - **THE GAIT AND THE GOAL ARE COMPLETELY DIFFERENT AND SEPARATED!**  You don't need to type stance while the robot is
   lying on the ground **with four foot touching the ground**; it's completely wrong since the robot is already in the
   stance gait.
@@ -161,7 +168,7 @@ rosrun rqt_controller_manager rqt_controller_manager
   controller (by ros service).
 
 ## Framework
-
+<!-- 系统框架 -->
 The system framework diagram is shown below.
 
 ![](docs/system_diagram.png)
@@ -178,11 +185,11 @@ The system framework diagram is shown below.
   position and velocity from base orientation, base acceleration, and joint foot position measurements.
 
 ## Module
-
+<!-- 模块介绍 -->
 The main module of the entire control framework is NMPC and WBC, and the following is only a very brief introduction.
 
 ### NMPC
-
+<!-- NMPC 模块 -->
 The NMPC part solves the following optimization problems at each cycle through the formulation and solving interfaces
 provided by OCS2:
 
@@ -223,7 +230,7 @@ nonlinear program (NLP) problem, and the NLP problem is solved using Sequential 
 subproblem is solved using HPIPM. For more details [2, 3]
 
 ### WBC
-
+<!-- WBC 模块 -->
 ![](docs/tasks.png)
 
 WBC only considers the current moment. Several tasks are defined in the table above. Each task is the equality
@@ -239,9 +246,10 @@ variables of inequality constraints. This approach can consider the full nonline
 hierarchy results. For more details [4].
 
 ## Deploy and Develop
+<!-- 部署与开发 -->
 
 ### A1 robot
-
+<!-- A1 机器人部署 -->
 People with ROS foundation should be able to run through simulation and real machine deployment within a few hours. The
 following shows some known laboratories that have run through this framework on their own A1 objects. and the time spent
 The table below shows the labs successfully deploying this repo in their **real A1**; feel free to open a PR to update
@@ -255,7 +263,7 @@ I recommended to use an external computing device such as NUC to run this contro
 generation of NUC, and the computing frequency of NMPC can be close to 200Hz.
 
 ### Your costum rorbots
-
+<!-- 自定义机器人部署 -->
 Deploying this framework to your robot is very simple, the steps are as follows:
 
 - Imitate the `UnitreeHW` class in legged_examples/legged_unitree/legged_unitree_hw
@@ -264,7 +272,7 @@ Deploying this framework to your robot is very simple, the steps are as follows:
   URDF file, note that the names of the joint and link need to be the same as legged_unitree_description.
 
 ## Reference
-
+<!-- 参考文献 -->
 [1] T. Flayols, A. Del Prete, P. Wensing, A. Mifsud, M. Benallegue, and O. Stasse, “Experimental evaluation of simple
 estimators for humanoid robots,” IEEE-RAS Int. Conf. Humanoid Robot., pp. 889–895, 2017, doi:
 10.1109/HUMANOIDS.2017.8246977.

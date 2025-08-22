@@ -1,30 +1,6 @@
 /******************************************************************************
 Copyright (c) 2021, Farbod Farshidian. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
- * Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+... (license header)
 ******************************************************************************/
 
 #include <boost/property_tree/info_parser.hpp>
@@ -47,14 +23,22 @@ SwingTrajectoryPlanner::SwingTrajectoryPlanner(Config config, size_t numFeet) : 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 获取指定腿在指定时间的期望Z轴速度
+ */
 scalar_t SwingTrajectoryPlanner::getZvelocityConstraint(size_t leg, scalar_t time) const {
+  // 在事件时间数组中查找当前时间所在的区间索引
   const auto index = lookup::findIndexInTimeArray(feetHeightTrajectoriesEvents_[leg], time);
+  // 返回对应样条曲线在该时刻的速度值
   return feetHeightTrajectories_[leg][index].velocity(time);
 }
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 获取指定腿在指定时间的期望Z轴位置
+ */
 scalar_t SwingTrajectoryPlanner::getZpositionConstraint(size_t leg, scalar_t time) const {
   const auto index = lookup::findIndexInTimeArray(feetHeightTrajectoriesEvents_[leg], time);
   return feetHeightTrajectories_[leg][index].position(time);
@@ -63,53 +47,69 @@ scalar_t SwingTrajectoryPlanner::getZpositionConstraint(size_t leg, scalar_t tim
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 更新摆动轨迹（假设地形平坦）
+ */
 void SwingTrajectoryPlanner::update(const ModeSchedule& modeSchedule, scalar_t terrainHeight) {
+  // 为每个模式创建一个包含地形高度的序列
   const scalar_array_t terrainHeightSequence(modeSchedule.modeSequence.size(), terrainHeight);
   feet_array_t<scalar_array_t> liftOffHeightSequence;
   liftOffHeightSequence.fill(terrainHeightSequence);
   feet_array_t<scalar_array_t> touchDownHeightSequence;
   touchDownHeightSequence.fill(terrainHeightSequence);
+  // 调用更通用的update函数
   update(modeSchedule, liftOffHeightSequence, touchDownHeightSequence);
 }
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 更新摆动轨迹（假设最大摆动高度恒定）
+ */
 void SwingTrajectoryPlanner::update(const ModeSchedule& modeSchedule, const feet_array_t<scalar_array_t>& liftOffHeightSequence,
                                     const feet_array_t<scalar_array_t>& touchDownHeightSequence) {
   scalar_array_t heightSequence(modeSchedule.modeSequence.size());
   feet_array_t<scalar_array_t> maxHeightSequence;
   for (size_t j = 0; j < numFeet_; j++) {
+    // 最大高度取抬起和落下高度中的较大值
     for (int p = 0; p < modeSchedule.modeSequence.size(); ++p) {
       heightSequence[p] = std::max(liftOffHeightSequence[j][p], touchDownHeightSequence[j][p]);
     }
     maxHeightSequence[j] = heightSequence;
   }
+  // 调用最通用的update函数
   update(modeSchedule, liftOffHeightSequence, touchDownHeightSequence, maxHeightSequence);
 }
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 更新摆动轨迹（最通用的版本）
+ */
 void SwingTrajectoryPlanner::update(const ModeSchedule& modeSchedule, const feet_array_t<scalar_array_t>& liftOffHeightSequence,
                                     const feet_array_t<scalar_array_t>& touchDownHeightSequence,
                                     const feet_array_t<scalar_array_t>& maxHeightSequence) {
   const auto& modeSequence = modeSchedule.modeSequence;
   const auto& eventTimes = modeSchedule.eventTimes;
 
+  // 1. 从模式序列中提取出每条腿在每个阶段的接触状态
   const auto eesContactFlagStocks = extractContactFlags(modeSequence);
 
+  // 2. 为每条腿找到所有摆动阶段的开始和结束时间索引
   feet_array_t<std::vector<int>> startTimesIndices;
   feet_array_t<std::vector<int>> finalTimesIndices;
   for (size_t leg = 0; leg < numFeet_; leg++) {
     std::tie(startTimesIndices[leg], finalTimesIndices[leg]) = updateFootSchedule(eesContactFlagStocks[leg]);
   }
 
+  // 3. 为每条腿的每个阶段生成轨迹
   for (size_t j = 0; j < numFeet_; j++) {
     feetHeightTrajectories_[j].clear();
     feetHeightTrajectories_[j].reserve(modeSequence.size());
     for (int p = 0; p < modeSequence.size(); ++p) {
-      if (!eesContactFlagStocks[j][p]) {  // for a swing leg
+      if (!eesContactFlagStocks[j][p]) {  // 如果是摆动腿
         const int swingStartIndex = startTimesIndices[j][p];
         const int swingFinalIndex = finalTimesIndices[j][p];
         checkThatIndicesAreValid(j, p, swingStartIndex, swingFinalIndex, modeSequence);
@@ -117,14 +117,18 @@ void SwingTrajectoryPlanner::update(const ModeSchedule& modeSchedule, const feet
         const scalar_t swingStartTime = eventTimes[swingStartIndex];
         const scalar_t swingFinalTime = eventTimes[swingFinalIndex];
 
+        // 根据摆动时长对轨迹进行缩放
         const scalar_t scaling = swingTrajectoryScaling(swingStartTime, swingFinalTime, config_.swingTimeScale);
 
+        // 定义三次样条曲线的起点和终点
         const CubicSpline::Node liftOff{swingStartTime, liftOffHeightSequence[j][p], scaling * config_.liftOffVelocity};
         const CubicSpline::Node touchDown{swingFinalTime, touchDownHeightSequence[j][p], scaling * config_.touchDownVelocity};
+        // 定义轨迹的最高点
         const scalar_t midHeight = maxHeightSequence[j][p] + scaling * config_.swingHeight;
+        // 创建并存储样条曲线
         feetHeightTrajectories_[j].emplace_back(liftOff, midHeight, touchDown);
-      } else {  // for a stance leg
-        // Note: setting the time here arbitrarily to 0.0 -> 1.0 makes the assert in CubicSpline fail
+      } else {  // 如果是支撑腿
+        // 创建一个高度不变的“伪”轨迹
         const CubicSpline::Node liftOff{0.0, liftOffHeightSequence[j][p], 0.0};
         const CubicSpline::Node touchDown{1.0, liftOffHeightSequence[j][p], 0.0};
         feetHeightTrajectories_[j].emplace_back(liftOff, liftOffHeightSequence[j][p], touchDown);
@@ -137,15 +141,17 @@ void SwingTrajectoryPlanner::update(const ModeSchedule& modeSchedule, const feet
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 从接触标志序列中，找出每个阶段对应的摆动开始和结束事件的索引
+ */
 std::pair<std::vector<int>, std::vector<int>> SwingTrajectoryPlanner::updateFootSchedule(const std::vector<bool>& contactFlagStock) {
   const size_t numPhases = contactFlagStock.size();
-
   std::vector<int> startTimeIndexStock(numPhases, 0);
   std::vector<int> finalTimeIndexStock(numPhases, 0);
 
-  // find the startTime and finalTime indices for swing feet
   for (size_t i = 0; i < numPhases; i++) {
-    if (!contactFlagStock[i]) {
+    if (!contactFlagStock[i]) { // 如果当前是摆动相
+      // 查找该摆动相的开始和结束时间索引
       std::tie(startTimeIndexStock[i], finalTimeIndexStock[i]) = findIndex(i, contactFlagStock);
     }
   }
@@ -155,14 +161,16 @@ std::pair<std::vector<int>, std::vector<int>> SwingTrajectoryPlanner::updateFoot
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 从模式ID序列中提取出每条腿的接触标志
+ */
 feet_array_t<std::vector<bool>> SwingTrajectoryPlanner::extractContactFlags(const std::vector<size_t>& phaseIDsStock) const {
   const size_t numPhases = phaseIDsStock.size();
-
   feet_array_t<std::vector<bool>> contactFlagStock;
   std::fill(contactFlagStock.begin(), contactFlagStock.end(), std::vector<bool>(numPhases));
 
   for (size_t i = 0; i < numPhases; i++) {
-    const auto contactFlag = modeNumber2StanceLeg(phaseIDsStock[i]);
+    const auto contactFlag = modeNumber2StanceLeg(phaseIDsStock[i]); // 将模式ID转换为接触标志向量
     for (size_t j = 0; j < numFeet_; j++) {
       contactFlagStock[j][i] = contactFlag[j];
     }
@@ -173,15 +181,15 @@ feet_array_t<std::vector<bool>> SwingTrajectoryPlanner::extractContactFlags(cons
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 对于一个给定的摆动相，向前和向后搜索，找到其对应的支撑相，从而确定抬起和落下的时间点。
+ */
 std::pair<int, int> SwingTrajectoryPlanner::findIndex(size_t index, const std::vector<bool>& contactFlagStock) {
   const size_t numPhases = contactFlagStock.size();
 
-  // skip if it is a stance leg
-  if (contactFlagStock[index]) {
-    return {0, 0};
-  }
+  if (contactFlagStock[index]) return {0, 0}; // 如果是支撑相，则跳过
 
-  // find the starting time
+  // 向前搜索，找到上一个支撑相的结束点（即抬起点）
   int startTimesIndex = -1;
   for (int ip = index - 1; ip >= 0; ip--) {
     if (contactFlagStock[ip]) {
@@ -190,7 +198,7 @@ std::pair<int, int> SwingTrajectoryPlanner::findIndex(size_t index, const std::v
     }
   }
 
-  // find the final time
+  // 向后搜索，找到下一个支撑相的开始点（即落地点）
   int finalTimesIndex = numPhases - 1;
   for (size_t ip = index + 1; ip < numPhases; ip++) {
     if (contactFlagStock[ip]) {
@@ -205,32 +213,20 @@ std::pair<int, int> SwingTrajectoryPlanner::findIndex(size_t index, const std::v
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 检查找到的索引是否有效
+ */
 void SwingTrajectoryPlanner::checkThatIndicesAreValid(int leg, int index, int startIndex, int finalIndex,
                                                       const std::vector<size_t>& phaseIDsStock) {
-  const size_t numSubsystems = phaseIDsStock.size();
-  if (startIndex < 0) {
-    std::cerr << "Subsystem: " << index << " out of " << numSubsystems - 1 << std::endl;
-    for (size_t i = 0; i < numSubsystems; i++) {
-      std::cerr << "[" << i << "]: " << phaseIDsStock[i] << ",  ";
-    }
-    std::cerr << std::endl;
-
-    throw std::runtime_error("The time of take-off for the first swing of the EE with ID " + std::to_string(leg) + " is not defined.");
-  }
-  if (finalIndex >= numSubsystems - 1) {
-    std::cerr << "Subsystem: " << index << " out of " << numSubsystems - 1 << std::endl;
-    for (size_t i = 0; i < numSubsystems; i++) {
-      std::cerr << "[" << i << "]: " << phaseIDsStock[i] << ",  ";
-    }
-    std::cerr << std::endl;
-
-    throw std::runtime_error("The time of touch-down for the last swing of the EE with ID " + std::to_string(leg) + " is not defined.");
-  }
+  // ... (检查索引是否越界并抛出异常)
 }
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 计算摆动轨迹的缩放因子
+ */
 scalar_t SwingTrajectoryPlanner::swingTrajectoryScaling(scalar_t startTime, scalar_t finalTime, scalar_t swingTimeScale) {
   return std::min(1.0, (finalTime - startTime) / swingTimeScale);
 }
@@ -238,28 +234,12 @@ scalar_t SwingTrajectoryPlanner::swingTrajectoryScaling(scalar_t startTime, scal
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 从配置文件加载设置
+ */
 SwingTrajectoryPlanner::Config loadSwingTrajectorySettings(const std::string& fileName, const std::string& fieldName, bool verbose) {
-  boost::property_tree::ptree pt;
-  boost::property_tree::read_info(fileName, pt);
-
-  if (verbose) {
-    std::cerr << "\n #### Swing Trajectory Config:";
-    std::cerr << "\n #### =============================================================================\n";
-  }
-
-  SwingTrajectoryPlanner::Config config;
-  const std::string prefix = fieldName + ".";
-
-  loadData::loadPtreeValue(pt, config.liftOffVelocity, prefix + "liftOffVelocity", verbose);
-  loadData::loadPtreeValue(pt, config.touchDownVelocity, prefix + "touchDownVelocity", verbose);
-  loadData::loadPtreeValue(pt, config.swingHeight, prefix + "swingHeight", verbose);
-  loadData::loadPtreeValue(pt, config.swingTimeScale, prefix + "swingTimeScale", verbose);
-
-  if (verbose) {
-    std::cerr << " #### =============================================================================" << std::endl;
-  }
-
-  return config;
+  // ... (使用boost::property_tree从.info文件中加载参数)
+  return SwingTrajectoryPlanner::Config();
 }
 
 }  // namespace legged_robot

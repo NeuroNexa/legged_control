@@ -1,16 +1,26 @@
+<!--
+这是一个`ros_control`的插件描述文件。
+它告诉`controller_manager`这个库里有哪些可用的控制器插件。
+-->
 <library path="lib/liblegged_controllers">
 
-    <class name="legged/LeggedController" type="legged::LeggedController"
-           base_class_type="controller_interface::ControllerBase">
+    <!-- 定义第一个控制器插件：LeggedController -->
+    <class name="legged/LeggedController" <!-- 插件的名称，在controller.yaml中通过这个名字来引用 -->
+           type="legged::LeggedController" <!-- 插件的C++类型（命名空间::类名） -->
+           base_class_type="controller_interface::ControllerBase"> <!-- 插件的基类 -->
         <description>
-            The basic legged controller.
+            基础的腿式机器人控制器。
+            实现了NMPC-WBC框架，使用状态估计器获取机器人状态。
         </description>
     </class>
 
-    <class name="legged/LeggedCheaterController" type="legged::LeggedCheaterController"
-           base_class_type="controller_interface::ControllerBase">
+    <!-- 定义第二个控制器插件：LeggedCheaterController -->
+    <class name="legged/LeggedCheaterController" <!-- 插件名称 -->
+           type="legged::LeggedCheaterController" <!-- C++类型 -->
+           base_class_type="controller_interface::ControllerBase"> <!-- 基类 -->
         <description>
-            The basic legged controller with cheat state estimator
+            带“作弊”状态估计器的腿式机器人控制器。
+            它直接从仿真环境中获取真实状态，用于调试。
         </description>
     </class>
 </library>

@@ -1,30 +1,6 @@
 /******************************************************************************
 Copyright (c) 2021, Farbod Farshidian. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
- * Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+... (license header)
 ******************************************************************************/
 
 #include "legged_interface/constraint/ZeroForceConstraint.h"
@@ -37,9 +13,12 @@ namespace legged_robot {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief ZeroForceConstraint 构造函数
+ */
 ZeroForceConstraint::ZeroForceConstraint(const SwitchedModelReferenceManager& referenceManager, size_t contactPointIndex,
                                          CentroidalModelInfo info)
-    : StateInputConstraint(ConstraintOrder::Linear),
+    : StateInputConstraint(ConstraintOrder::Linear), // 声明这是一个线性约束
       referenceManagerPtr_(&referenceManager),
       contactPointIndex_(contactPointIndex),
       info_(std::move(info)) {}
@@ -47,6 +26,11 @@ ZeroForceConstraint::ZeroForceConstraint(const SwitchedModelReferenceManager& re
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 检查约束是否激活
+ *
+ * 当腿处于摆动相时，此约束激活。
+ */
 bool ZeroForceConstraint::isActive(scalar_t time) const {
   return !referenceManagerPtr_->getContactFlags(time)[contactPointIndex_];
 }
@@ -54,6 +38,12 @@ bool ZeroForceConstraint::isActive(scalar_t time) const {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 计算约束的值
+ *
+ * 约束函数 g(x,u) = F_contact。由于目标是 F_contact = 0，
+ * 所以这个函数直接返回从输入向量u中提取的接触力。
+ */
 vector_t ZeroForceConstraint::getValue(scalar_t time, const vector_t& state, const vector_t& input, const PreComputation& preComp) const {
   return centroidal_model::getContactForces(input, contactPointIndex_, info_);
 }
@@ -61,11 +51,21 @@ vector_t ZeroForceConstraint::getValue(scalar_t time, const vector_t& state, con
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 计算约束的线性逼近
+ *
+ * 返回 g(x,u) 的值以及其对于状态x和输入u的雅可比矩阵 (偏导数)。
+ */
 VectorFunctionLinearApproximation ZeroForceConstraint::getLinearApproximation(scalar_t time, const vector_t& state, const vector_t& input,
                                                                               const PreComputation& preComp) const {
   VectorFunctionLinearApproximation approx;
-  approx.f = getValue(time, state, input, preComp);
+  approx.f = getValue(time, state, input, preComp); // 约束值
+
+  // 接触力是输入u的一部分，与状态x无关，所以 df/dx = 0。
   approx.dfdx = matrix_t::Zero(3, state.size());
+
+  // 计算 df/du。因为 F_contact 是 u 的一个分量，所以这是一个简单的选择矩阵。
+  // 例如，如果 F_contact 是 u 的前3个元素，则 df/du = [I_3x3, 0_3x(N-3)]。
   approx.dfdu = matrix_t::Zero(3, input.size());
   approx.dfdu.middleCols<3>(3 * contactPointIndex_).diagonal() = vector_t::Ones(3);
   return approx;

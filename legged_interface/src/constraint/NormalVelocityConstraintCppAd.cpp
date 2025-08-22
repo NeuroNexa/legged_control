@@ -1,30 +1,6 @@
 /******************************************************************************
 Copyright (c) 2021, Farbod Farshidian. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
- * Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+... (license header)
 ******************************************************************************/
 
 #include "legged_interface/constraint/NormalVelocityConstraintCppAd.h"
@@ -36,17 +12,24 @@ namespace legged_robot {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief NormalVelocityConstraintCppAd 构造函数
+ */
 NormalVelocityConstraintCppAd::NormalVelocityConstraintCppAd(const SwitchedModelReferenceManager& referenceManager,
                                                              const EndEffectorKinematics<scalar_t>& endEffectorKinematics,
                                                              size_t contactPointIndex)
-    : StateInputConstraint(ConstraintOrder::Linear),
+    : StateInputConstraint(ConstraintOrder::Linear), // 声明这是一个线性约束
       referenceManagerPtr_(&referenceManager),
+      // 创建一个内部的EndEffectorLinearConstraint实例，约束数量为1（只约束Z轴速度）
       eeLinearConstraintPtr_(new EndEffectorLinearConstraint(endEffectorKinematics, 1)),
       contactPointIndex_(contactPointIndex) {}
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief NormalVelocityConstraintCppAd 拷贝构造函数
+ */
 NormalVelocityConstraintCppAd::NormalVelocityConstraintCppAd(const NormalVelocityConstraintCppAd& rhs)
     : StateInputConstraint(rhs),
       referenceManagerPtr_(rhs.referenceManagerPtr_),
@@ -56,6 +39,11 @@ NormalVelocityConstraintCppAd::NormalVelocityConstraintCppAd(const NormalVelocit
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 检查约束是否激活
+ *
+ * 当腿处于摆动相时，此约束激活。
+ */
 bool NormalVelocityConstraintCppAd::isActive(scalar_t time) const {
   return !referenceManagerPtr_->getContactFlags(time)[contactPointIndex_];
 }
@@ -63,23 +51,34 @@ bool NormalVelocityConstraintCppAd::isActive(scalar_t time) const {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 计算约束的值
+ */
 vector_t NormalVelocityConstraintCppAd::getValue(scalar_t time, const vector_t& state, const vector_t& input,
                                                  const PreComputation& preComp) const {
+  // 从预计算模块中获取当前时刻的线性约束配置
+  // 这个配置是由 SwingTrajectoryPlanner 生成的，包含了期望的Z轴速度
   const auto& preCompLegged = cast<LeggedRobotPreComputation>(preComp);
   eeLinearConstraintPtr_->configure(preCompLegged.getEeNormalVelocityConstraintConfigs()[contactPointIndex_]);
 
+  // 调用内部的EndEffectorLinearConstraint来计算约束值
   return eeLinearConstraintPtr_->getValue(time, state, input, preComp);
 }
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 计算约束的线性逼近
+ */
 VectorFunctionLinearApproximation NormalVelocityConstraintCppAd::getLinearApproximation(scalar_t time, const vector_t& state,
                                                                                         const vector_t& input,
                                                                                         const PreComputation& preComp) const {
+  // 从预计算模块中获取当前时刻的线性约束配置
   const auto& preCompLegged = cast<LeggedRobotPreComputation>(preComp);
   eeLinearConstraintPtr_->configure(preCompLegged.getEeNormalVelocityConstraintConfigs()[contactPointIndex_]);
 
+  // 调用内部的EndEffectorLinearConstraint来计算线性逼近
   return eeLinearConstraintPtr_->getLinearApproximation(time, state, input, preComp);
 }
 

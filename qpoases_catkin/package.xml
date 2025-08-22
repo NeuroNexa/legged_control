@@ -1,12 +1,19 @@
 <?xml version="1.0"?>
+<!-- package.xml是ROS包的清单文件，用于定义包的属性 -->
 <package format="2">
+    <!-- 包名 -->
     <name>qpoases_catkin</name>
+    <!-- 版本号 -->
     <version>0.0.0</version>
+    <!-- 包的简短描述: qpoases的Catkin封装 -->
     <description>Catkin wrapper for qpoases.</description>
+    <!-- 维护者信息 -->
     <maintainer email="liaoqiayuan@gmail.com">Qiayuan Liao</maintainer>
 
+    <!-- 许可证信息: 指向qpoases自身的许可证 -->
     <license>See package</license>
 
+    <!-- 构建工具依赖 -->
     <buildtool_depend>catkin</buildtool_depend>
 
 </package>

@@ -1,16 +1,26 @@
 <?xml version="1.0"?>
+<!-- package.xml是ROS包的清单文件，用于定义包的属性 -->
 <package format="2">
+    <!-- 包名 -->
     <name>legged_hw</name>
+    <!-- 版本号 -->
     <version>0.0.0</version>
+    <!-- 包的简短描述 -->
     <description>ROS control warped interface for Unitree Robots</description>
+    <!-- 维护者信息 -->
     <maintainer email="liaoqiayuan@gmail.com">Qiayuan Liao</maintainer>
 
+    <!-- 许可证信息 -->
     <license>BSD</license>
+    <!-- 作者信息 -->
     <author email="liaoqiayuan@gmail.com">Qiayuan Liao</author>
 
+    <!-- 构建工具依赖 -->
     <buildtool_depend>catkin</buildtool_depend>
 
+    <!-- 构建依赖 -->
     <build_depend>cmake_clang_tools</build_depend>
+    <!-- 通用依赖 -->
     <depend>roscpp</depend>
     <depend>legged_common</depend>
     <depend>controller_manager</depend>

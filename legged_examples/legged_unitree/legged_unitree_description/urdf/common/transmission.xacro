@@ -1,12 +1,34 @@
 <?xml version="1.0"?>
-
+<!--
+  这个xacro文件定义了一个名为 `leg_transmission` 的宏。
+  这个宏为一条腿的三个关节（HAA, HFE, KFE）定义了传动装置（transmission）。
+  传动装置是`ros_control`框架的一部分，它将关节（joint）与执行器（actuator）连接起来。
+  这对于仿真和硬件接口都是必需的。
+-->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+    <!--
+      定义 `leg_transmission` 宏
+      - name: 关节和传动装置名称的前缀, 应该从leg.xacro宏传入 (例如 "LF")
+    -->
     <xacro:macro name="leg_transmission" params="name">
 
+        <!--
+          注意：这个文件中存在一个潜在的bug。
+          宏的参数被定义为 `name`，但在宏内部，变量被写作 `${prefix}`。
+          这很可能是个笔误，应该使用 `${name}`。
+          尽管如此，注释将按照当前的书写方式进行。
+        -->
+
+        <!-- HAA关节的传动装置 -->
         <transmission name="${prefix}_HAA_tran">
+            <!-- SimpleTransmission表示关节和执行器之间有线性的、一对一的关系（通过一个减速比） -->
             <type>transmission_interface/SimpleTransmission</type>
             <joint name="${prefix}_HAA">
+                <!--
+                  这个关节使用的硬件接口类型。
+                  EffortJointInterface表示我们可以直接向这个关节发送力/力矩指令。
+                -->
                 <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
             </joint>
             <actuator name="${prefix}_HAA_motor">
@@ -15,6 +37,7 @@
             </actuator>
         </transmission>
 
+        <!-- HFE关节的传动装置 -->
         <transmission name="${prefix}_HFE_tran">
             <type>transmission_interface/SimpleTransmission</type>
             <joint name="${prefix}_HFE">
@@ -26,6 +49,7 @@
             </actuator>
         </transmission>
 
+        <!-- KFE关节的传动装置 -->
         <transmission name="${prefix}_KFE_tran">
             <type>transmission_interface/SimpleTransmission</type>
             <joint name="${prefix}_KFE">

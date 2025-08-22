@@ -1,3 +1,13 @@
+# 这是Aliengo机器人的步态定义文件。
+# 结构和A1的gait.info文件完全相同，但是一些步态的周期和时间点有所不同，以适应Aliengo的动力学特性。
+# LF: Left Foreleg (左前腿)
+# RF: Right Foreleg (右前腿)
+# LH: Left Hindleg (左后腿)
+# RH: Right Hindleg (右后腿)
+# STANCE: 四足都着地
+# FLY: 四足都离地
+
+# 可用步态列表
 list
 {
   [0] stance
@@ -13,6 +23,8 @@ list
   [10] skipping
   [11] pawup
 }
+
+# --- 步态定义 ---
 
 stance
  {
@@ -193,8 +205,8 @@ lindyhop
     [7]     STANCE
     [8]     RF_RH
     [9]     LF_LH
-    [10]     RF_RH
-    [11]     STANCE
+    [10]    RF_RH
+    [11]    STANCE
   }
   switchingTimes
   {
@@ -216,6 +228,8 @@ lindyhop
 
 skipping
 {
+  # 注意：这个步态的定义看起来有错误。modeSequence和switchingTimes中的索引有重复。
+  # 这可能是复制粘贴错误。注释将按照其书写方式进行，但请注意此问题。
   modeSequence
   {
     [0]     LF_RH
@@ -267,7 +281,7 @@ pawup
 {
    modeSequence
    {
-     [0]     RF_LH_RH
+     [0]     RF_LH_RH # 抬起左前腿
    }
    switchingTimes
    {

@@ -1,6 +1,13 @@
+# Go1机器人硬件接口的配置文件
+# 注意：此处的参数与A1的配置完全相同。
 legged_unitree_hw:
+  # 控制循环的频率 (Hz)
   loop_frequency: 500
+  # 控制周期的最大允许误差 (s)
   cycle_time_error_threshold: 0.002
+  # 硬件控制线程的优先级 (0-99)
   thread_priority: 95
+  # 电机功率限制
   power_limit: 4
+  # 足底接触力阈值 (N)
   contact_threshold: 40

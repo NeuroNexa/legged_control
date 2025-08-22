@@ -1,20 +1,32 @@
 <?xml version="1.0"?>
+<!-- package.xml是ROS包的清单文件，用于定义包的属性 -->
 <package format="2">
+    <!-- 包名 -->
     <name>legged_control</name>
+    <!-- 版本号 -->
     <version>0.0.0</version>
+    <!-- 包的简短描述 -->
     <description>Meta package that contains package of legged.</description>
+    <!-- 维护者信息 -->
     <maintainer email="liaoqiayuan@gmail.com">Qiayuan Liao</maintainer>
 
+    <!-- 许可证信息 -->
     <license>BSD</license>
 
+    <!-- 链接到代码仓库 -->
     <url type="repository">https://github.com/qiayuanliao/legged_control</url>
+    <!-- 链接到问题跟踪器 -->
     <url type="bugtracker">https://github.com/qiayuanliao/legged_control/issues</url>
 
+    <!-- 作者信息 -->
     <author email="liaoqiayuan@gmail.com">Qiayuan Liao</author>
 
+    <!-- 构建工具依赖 -->
     <buildtool_depend>catkin</buildtool_depend>
 
+    <!-- 导出标签 -->
     <export>
+        <!-- 声明这是一个元包 -->
         <metapackage/>
     </export>
 </package>

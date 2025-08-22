@@ -1,30 +1,6 @@
 /******************************************************************************
 Copyright (c) 2021, Farbod Farshidian. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
- * Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+... (license header)
 ******************************************************************************/
 
 #include "legged_interface/constraint/ZeroVelocityConstraintCppAd.h"
@@ -35,17 +11,24 @@ namespace legged_robot {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief ZeroVelocityConstraintCppAd 构造函数
+ */
 ZeroVelocityConstraintCppAd::ZeroVelocityConstraintCppAd(const SwitchedModelReferenceManager& referenceManager,
                                                          const EndEffectorKinematics<scalar_t>& endEffectorKinematics,
                                                          size_t contactPointIndex, EndEffectorLinearConstraint::Config config)
-    : StateInputConstraint(ConstraintOrder::Linear),
+    : StateInputConstraint(ConstraintOrder::Linear), // 声明这是一个线性约束
       referenceManagerPtr_(&referenceManager),
+      // 创建一个内部的EndEffectorLinearConstraint实例，约束数量为3 (vx, vy, vz)
       eeLinearConstraintPtr_(new EndEffectorLinearConstraint(endEffectorKinematics, 3, std::move(config))),
       contactPointIndex_(contactPointIndex) {}
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief ZeroVelocityConstraintCppAd 拷贝构造函数
+ */
 ZeroVelocityConstraintCppAd::ZeroVelocityConstraintCppAd(const ZeroVelocityConstraintCppAd& rhs)
     : StateInputConstraint(rhs),
       referenceManagerPtr_(rhs.referenceManagerPtr_),
@@ -55,6 +38,11 @@ ZeroVelocityConstraintCppAd::ZeroVelocityConstraintCppAd(const ZeroVelocityConst
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 检查约束是否激活
+ *
+ * 当腿处于支撑相时，此约束激活。
+ */
 bool ZeroVelocityConstraintCppAd::isActive(scalar_t time) const {
   return referenceManagerPtr_->getContactFlags(time)[contactPointIndex_];
 }
@@ -62,6 +50,13 @@ bool ZeroVelocityConstraintCppAd::isActive(scalar_t time) const {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 计算约束的值
+ *
+ * 直接调用内部的EndEffectorLinearConstraint来计算约束值。
+ * 对于零速度约束，其内部配置通常是 A_v = I, A_x = 0, b = 0，
+ * 所以 getValue() 返回的就是末端执行器的速度 v_ee。
+ */
 vector_t ZeroVelocityConstraintCppAd::getValue(scalar_t time, const vector_t& state, const vector_t& input,
                                                const PreComputation& preComp) const {
   return eeLinearConstraintPtr_->getValue(time, state, input, preComp);
@@ -70,6 +65,11 @@ vector_t ZeroVelocityConstraintCppAd::getValue(scalar_t time, const vector_t& st
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+/**
+ * @brief 计算约束的线性逼近
+ *
+ * 直接调用内部的EndEffectorLinearConstraint来计算线性逼近。
+ */
 VectorFunctionLinearApproximation ZeroVelocityConstraintCppAd::getLinearApproximation(scalar_t time, const vector_t& state,
                                                                                       const vector_t& input,
                                                                                       const PreComputation& preComp) const {

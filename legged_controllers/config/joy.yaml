@@ -1,16 +1,25 @@
+# 这是一个`joy_teleop`节点的配置文件。
+# 它将手柄（joystick）的输入映射到ROS话题上，从而实现遥控操作。
 teleop:
+  # "walk"是此配置段的名称，可以自定义
   walk:
-    type: topic
-    message_type: geometry_msgs/Twist
-    topic_name: cmd_vel
-    deadman_buttons: [ 4 ]
+    type: topic # 操作类型，"topic"表示将手柄输入发布到一个话题上
+    message_type: geometry_msgs/Twist # 发布的消息类型，Twist用于表示速度
+    topic_name: cmd_vel # 发布的话题名称，这是ROS中控制机器人移动速度的标准话题
+    deadman_buttons: [ 4 ] # "死人开关"按钮。只有按住这个按钮（或这些按钮之一），遥控才生效。
+                           # 这里的[4]通常对应于手柄上的某个肩键（如L1）。
+
+    # 轴映射：将手柄的摇杆轴映射到消息的字段上
     axis_mappings:
-      - axis: 0
-        target: angular.z
-        scale: 3.1415
+      # 左摇杆左右 -> 机器人的角速度z (原地旋转)
+      - axis: 0           # 手柄的轴编号
+        target: angular.z # Twist消息中的目标字段
+        scale: 3.1415     # 缩放因子，将轴的输入（通常是-1到1）乘以这个值
+      # 左摇杆上下 -> 机器人的线速度x (前进/后退)
       - axis: 1
         target: linear.x
         scale: 1.0
+      # 右摇杆左右 -> 机器人的线速度y (侧向移动)
       - axis: 2
         target: linear.y
         scale: 0.8

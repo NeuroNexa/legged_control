@@ -36,35 +36,42 @@
 //
 
 #include "legged_unitree_hw/UnitreeHW.h"
-
 #include <legged_hw/LeggedHWLoop.h>
 
+/**
+ * @brief 主函数
+ *
+ * 这是Unitree硬件接口节点（`legged_unitree_hw`）的入口点。
+ * 它负责初始化ROS，创建并运行一个`ros_control`的硬件接口循环。
+ */
 int main(int argc, char** argv) {
+  // 初始化ROS节点
   ros::init(argc, argv, "legged_unitree_hw");
   ros::NodeHandle nh;
-  ros::NodeHandle robotHwNh("~");
+  ros::NodeHandle robotHwNh("~"); // 私有节点句柄，用于获取该节点的特定参数
 
-  // Run the hardware interface node
-  // -------------------------------
+  // --- 运行硬件接口节点 ---
 
-  // We run the ROS loop in a separate thread as external calls, such
-  // as service callbacks loading controllers, can block the (main) control loop
-
-  ros::AsyncSpinner spinner(3);
+  // 我们在一个单独的线程中运行ROS事件循环（spinner），
+  // 因为一些外部调用（如加载控制器的服务回调）可能会阻塞主（控制）循环。
+  ros::AsyncSpinner spinner(3); // 使用3个线程
   spinner.start();
 
   try {
-    // Create the hardware interface specific to your robot
+    // 1. 创建特定于机器人的硬件接口
     std::shared_ptr<legged::UnitreeHW> unitreeHw = std::make_shared<legged::UnitreeHW>();
-    // Initialize the hardware interface:
-    // 1. retrieve configuration from rosparam
-    // 2. initialize the hardware and interface it with ros_control
+
+    // 2. 初始化硬件接口:
+    //    a. 从rosparam检索配置
+    //    b. 初始化硬件并将其与ros_control接口连接
     unitreeHw->init(nh, robotHwNh);
 
-    // Start the control loop
+    // 3. 启动控制循环
+    //    LeggedHWLoop负责以固定频率调用硬件接口的read()和write()方法，
+    //    并管理控制器管理器（controller_manager）。
     legged::LeggedHWLoop controlLoop(nh, unitreeHw);
 
-    // Wait until shutdown signal received
+    // 4. 等待直到收到关闭信号 (例如, Ctrl+C)
     ros::waitForShutdown();
   } catch (const ros::Exception& e) {
     ROS_FATAL_STREAM("Error in the hardware interface:\n"

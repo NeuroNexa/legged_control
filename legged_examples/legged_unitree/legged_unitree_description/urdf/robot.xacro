@@ -1,32 +1,50 @@
 <?xml version="1.0"?>
-
+<!--
+  这是一个顶层的xacro文件，用于组装整个机器人模型。
+  它通过包含其他xacro文件（如通用部件和特定机器人配置）来构建一个完整的URDF。
+  Xacro (XML Macros) 是一个URDF的预处理器，允许使用变量、宏和文件包含等功能，使URDF更加模块化和可重用。
+-->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot">
 
+    <!-- 定义一个参数 `robot_type`，用于在加载时指定机器人型号，默认为a1 -->
     <xacro:arg name="robot_type" default="a1"/>
 
+    <!-- 包含通用的xacro文件 -->
+    <!-- materials.xacro: 定义了模型中使用的颜色和材质 -->
     <xacro:include filename="$(find legged_unitree_description)/urdf/common/materials.xacro"/>
+    <!-- leg.xacro: 定义了单条腿的宏，可以被多次实例化 -->
     <xacro:include filename="$(find legged_unitree_description)/urdf/common/leg.xacro"/>
+    <!-- gazebo.xacro: 定义了与Gazebo仿真相关的插件和设置，如ros_control插件 -->
     <xacro:include filename="$(find legged_unitree_description)/urdf/common/gazebo.xacro"/>
+    <!-- imu.xacro: 定义了IMU传感器的连杆和关节 -->
     <xacro:include filename="$(find legged_unitree_description)/urdf/common/imu.xacro"/>
 
+    <!-- 包含特定于机器人型号的常量文件 -->
+    <!-- const.xacro: 定义了该型号机器人的尺寸、质量、惯性等物理参数 -->
     <xacro:include filename="$(find legged_unitree_description)/urdf/$(arg robot_type)/const.xacro"/>
 
-<!--    <xacro:property name="mesh_path" value="../meshes"/>-->
+    <!-- 定义一个属性 `mesh_path`，指向包含机器人视觉模型（网格文件）的目录 -->
     <xacro:property name="mesh_path" value="$(find legged_unitree_description)/meshes/$(arg robot_type)"/>
 
+    <!-- 定义机器人的基座连杆 (base link) -->
     <link name="base">
+        <!-- 视觉模型 (visual): 用于在RViz等工具中显示 -->
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
+                <!-- 使用DAE格式的网格文件来表示躯干的外观 -->
                 <mesh filename="${mesh_path}/trunk.dae" scale="1 1 1"/>
             </geometry>
         </visual>
+        <!-- 碰撞模型 (collision): 用于物理引擎中的碰撞检测 -->
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
+                <!-- 使用一个简单的长方体作为碰撞体 -->
                 <box size="${trunk_length} ${trunk_width} ${trunk_height}"/>
             </geometry>
         </collision>
+        <!-- 惯性参数 (inertial): 用于物理引擎中的动力学计算 -->
         <inertial>
             <origin rpy="0 0 0" xyz="${trunk_com_x} ${trunk_com_y} ${trunk_com_z}"/>
             <mass value="${trunk_mass}"/>
@@ -37,9 +55,18 @@
         </inertial>
     </link>
 
+    <!-- 实例化IMU宏，将其连接到 "base" 连杆上 -->
     <xacro:IMU connected_to="base" imu_name="base_imu" xyz="0. 0. 0." rpy="0. 0. 0."/>
 
-
+    <!-- 实例化四条腿 -->
+    <!--
+      `leg` 是在 leg.xacro 中定义的宏。
+      通过不同的参数（prefix, mirror, front_hind, origin）来生成四条不同位置和方向的腿。
+      - prefix: 关节和连杆名称的前缀 (e.g., "LF_HAA_joint")
+      - mirror: 镜像参数，用于翻转关节方向以创建左右腿
+      - front_hind: 前后参数，用于翻转关节方向以创建前后腿
+      - origin: 定义腿相对于基座原点的位置和姿态
+    -->
     <xacro:leg prefix="LF" mesh_path="${mesh_path}" mirror="1" mirror_dae="True" front_hind="1" front_hind_dae="True">
         <origin rpy="0 0 0" xyz="${leg_offset_x} ${leg_offset_y} 0"/>
     </xacro:leg>

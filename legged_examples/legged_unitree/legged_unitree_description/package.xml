@@ -1,16 +1,27 @@
 <?xml version="1.0"?>
+<!-- package.xml是ROS包的清单文件，用于定义包的属性 -->
 <package format="2">
+    <!-- 包名 -->
     <name>legged_unitree_description</name>
+    <!-- 版本号 -->
     <version>0.0.0</version>
+    <!-- 包的简短描述 -->
     <description>Unitree robot description files</description>
+    <!-- 维护者信息 -->
     <maintainer email="liaoqiayuan@gmail.com">Qiayuan Liao</maintainer>
+    <!-- 许可证信息 -->
     <license>BSD</license>
+    <!-- 作者信息 -->
     <author email="liaoqiayuan@gmail.com">Qiayuan Liao</author>
 
-    <!-- buildtool_depend: dependencies of the build process -->
+    <!-- 构建工具依赖 -->
     <buildtool_depend>catkin</buildtool_depend>
+    <!-- 运行依赖，仅在运行时需要 -->
+    <!-- xacro: 用于处理xacro文件以生成URDF -->
     <exec_depend>xacro</exec_depend>
+    <!-- joint_state_publisher: 用于发布关节状态，通常用于在RViz中驱动机器人模型 -->
     <exec_depend>joint_state_publisher</exec_depend>
+    <!-- robot_state_publisher: 订阅关节状态，并根据URDF计算和发布各连杆的TF变换 -->
     <exec_depend>robot_state_publisher</exec_depend>
 
 </package>

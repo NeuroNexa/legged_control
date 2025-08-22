@@ -1,91 +1,104 @@
-centroidalModelType             0      // 0: FullCentroidalDynamics, 1: Single Rigid Body Dynamics
+# OCS2任务配置文件 for A1 robot
+# 这个文件定义了最优控制问题的所有方面，包括模型、求解器、代价函数、约束等。
 
+# 质心动力学模型类型
+# 0: FullCentroidalDynamics - 完整的质心动力学模型，考虑了动量变化率
+# 1: Single Rigid Body Dynamics - 简化的单刚体动力学模型
+centroidalModelType             0
+
+# legged_robot_interface: 机器人接口配置
 legged_robot_interface
 {
-  verbose                               false  // show the loaded parameters
+  verbose                               false  # 是否显示加载的参数详情
 }
 
+# model_settings: 模型相关设置
 model_settings
 {
-  positionErrorGain             0.0
-  phaseTransitionStanceTime     0.1
+  positionErrorGain             0.0    # 位置误差增益，用于反馈线性化（这里未使用）
+  phaseTransitionStanceTime     0.1    # 相位转换时的站立时间
 
-  verboseCppAd                  true
-  recompileLibrariesCppAd       false
-  modelFolderCppAd              /tmp/legged_control/a1
+  # CppAD: 用于自动微分的库，可以从符号表达式生成C++代码
+  verboseCppAd                  true   # 是否显示CppAD代码生成的详细信息
+  recompileLibrariesCppAd       false  # 是否每次都重新编译自动生成的库
+  modelFolderCppAd              /tmp/legged_control/a1 # 自动生成的库文件存放路径
 }
 
+# swing_trajectory_config: 摆动腿轨迹生成参数
 swing_trajectory_config
 {
-  liftOffVelocity               0.05
-  touchDownVelocity            -0.1
-  swingHeight                   0.08
-  swingTimeScale                0.15
+  liftOffVelocity               0.05   # 抬腿时的垂直速度 (m/s)
+  touchDownVelocity            -0.1    # 落足时的垂直速度 (m/s)
+  swingHeight                   0.08   # 摆动腿抬起的高度 (m)
+  swingTimeScale                0.15   # 摆动时间缩放，用于调整轨迹形状
 }
 
-; DDP settings
+# --- 最优控制求解器设置 ---
+# OCS2支持多种求解器，这里配置了DDP/SLQ, SQP, IPM
+
+# ddp: 微分动态规划 (Differential Dynamic Programming) / SLQ (Sequential Linear Quadratic) 设置
 ddp
 {
-  algorithm                       SLQ
+  algorithm                       SLQ    # 使用SLQ算法
 
-  nThreads                        3
-  threadPriority                  50
+  nThreads                        3      # 使用的线程数
+  threadPriority                  50     # 线程优先级
 
-  maxNumIterations                1
-  minRelCost                      1e-1
-  constraintTolerance             5e-3
+  maxNumIterations                1      # 每次MPC迭代中，DDP求解器的最大迭代次数
+  minRelCost                      1e-1   # 最小相对代价改善量，用于收敛判断
+  constraintTolerance             5e-3   # 约束容忍度
 
-  displayInfo                     false
-  displayShortSummary             false
-  checkNumericalStability         false
-  debugPrintRollout               false
-  debugCaching                    false
+  displayInfo                     false  # 是否显示求解器信息
+  displayShortSummary             false  # 是否显示简短摘要
+  checkNumericalStability         false  # 是否检查数值稳定性
+  debugPrintRollout               false  # 是否打印rollout的调试信息
+  debugCaching                    false  # 是否打印缓存的调试信息
 
-  AbsTolODE                       1e-5
-  RelTolODE                       1e-3
-  maxNumStepsPerSecond            10000
-  timeStep                        0.015
-  backwardPassIntegratorType      ODE45
+  AbsTolODE                       1e-5   # ODE求解器的绝对容忍度
+  RelTolODE                       1e-3   # ODE求解器的相对容忍度
+  maxNumStepsPerSecond            10000  # 每秒最大步数
+  timeStep                        0.015  # 积分步长
+  backwardPassIntegratorType      ODE45  # backward pass使用的积分器类型
 
-  constraintPenaltyInitialValue   20.0
-  constraintPenaltyIncreaseRate   2.0
+  constraintPenaltyInitialValue   20.0   # 约束惩罚项的初始值
+  constraintPenaltyIncreaseRate   2.0    # 约束惩罚项的增长率
 
-  preComputeRiccatiTerms          true
+  preComputeRiccatiTerms          true   # 是否预计算Riccati方程的项
 
-  useFeedbackPolicy               false
+  useFeedbackPolicy               false  # 是否使用反馈策略
 
-  strategy                        LINE_SEARCH
+  strategy                        LINE_SEARCH # 全局化策略
   lineSearch
   {
-    minStepLength                 1e-2
-    maxStepLength                 1.0
-    hessianCorrectionStrategy     DIAGONAL_SHIFT
-    hessianCorrectionMultiple     1e-5
+    minStepLength                 1e-2   # 最小步长
+    maxStepLength                 1.0    # 最大步长
+    hessianCorrectionStrategy     DIAGONAL_SHIFT # Hessian修正策略
+    hessianCorrectionMultiple     1e-5   # Hessian修正系数
   }
 }
 
 
-; Multiple_Shooting SQP settings
+# sqp: 多重打靶序列二次规划 (Multiple-Shooting SQP) 设置
 sqp
 {
-  nThreads                              3
-  dt                                    0.015
-  sqpIteration                          1
-  deltaTol                              1e-4
-  g_max                                 1e-2
-  g_min                                 1e-6
-  inequalityConstraintMu                0.1
-  inequalityConstraintDelta             5.0
-  projectStateInputEqualityConstraints  true
-  printSolverStatistics                 true
-  printSolverStatus                     false
-  printLinesearch                       false
-  useFeedbackPolicy                     false
-  integratorType                        RK2
-  threadPriority                        50
+  nThreads                              3       # 线程数
+  dt                                    0.015   # 离散化时间步长
+  sqpIteration                          1       # SQP迭代次数
+  deltaTol                              1e-4    # 收敛容忍度
+  g_max                                 1e-2    # 约束违反的最大值
+  g_min                                 1e-6    # 约束违反的最小值
+  inequalityConstraintMu                0.1     # 不等式约束的惩罚参数
+  inequalityConstraintDelta             5.0     # 不等式约束的松弛参数
+  projectStateInputEqualityConstraints  true    # 是否投影状态输入等式约束
+  printSolverStatistics                 true    # 打印求解器统计信息
+  printSolverStatus                     false   # 打印求解器状态
+  printLinesearch                       false   # 打印线搜索信息
+  useFeedbackPolicy                     false   # 是否使用反馈策略
+  integratorType                        RK2     # 积分器类型
+  threadPriority                        50      # 线程优先级
 }
 
-; Multiple_Shooting IPM settings
+# ipm: 多重打靶内点法 (Multiple-Shooting IPM) 设置
 ipm
 {
   nThreads                              3
@@ -118,7 +131,7 @@ ipm
   initialDualMarginRate                 1e-2
 }
 
-; Rollout settings
+# rollout: 前向仿真设置 (用于验证和执行)
 rollout
 {
   AbsTolODE                       1e-5
@@ -129,40 +142,43 @@ rollout
   checkNumericalStability         false
 }
 
+# mpc: 模型预测控制 (Model Predictive Control) 设置
 mpc
 {
-  timeHorizon                     1.0  ; [s]
-  solutionTimeWindow              -1   ; maximum [s]
-  coldStart                       false
+  timeHorizon                     1.0  ; # 预测时域长度 [s]
+  solutionTimeWindow              -1   ; # 解的时间窗口，-1表示不使用
+  coldStart                       false; # 是否使用冷启动 (每次都从头开始解)
 
-  debugPrint                      false
+  debugPrint                      false; # 是否打印MPC的调试信息
 
-  mpcDesiredFrequency             100  ; [Hz]
-  mrtDesiredFrequency             1000 ; [Hz] Useless
+  mpcDesiredFrequency             100  ; # MPC的期望频率 [Hz]
+  mrtDesiredFrequency             1000 ; # MRT(Model Reference Tracking)的期望频率 [Hz]，这里未使用
 }
 
+# initialState: 初始状态向量
+# 这是MPC问题中x(0)的默认值
 initialState
 {
-   ;; Normalized Centroidal Momentum: [linear, angular] ;;
-   (0,0)  0.0     ; vcom_x
+   # 归一化的质心动量: [线动量, 角动量]
+   (0,0)  0.0     ; vcom_x (x方向线速度)
    (1,0)  0.0     ; vcom_y
    (2,0)  0.0     ; vcom_z
-   (3,0)  0.0     ; L_x / robotMass
+   (3,0)  0.0     ; L_x / robotMass (x方向角动量/质量)
    (4,0)  0.0     ; L_y / robotMass
    (5,0)  0.0     ; L_z / robotMass
 
-   ;; Base Pose: [position, orientation] ;;
+   # 基座姿态: [位置, 方向(欧拉角 ZYX)]
    (6,0)  0.0     ; p_base_x
    (7,0)  0.0     ; p_base_y
-   (8,0)  0.3     ; p_base_z
-   (9,0)  0.0     ; theta_base_z
-   (10,0) 0.0     ; theta_base_y
-   (11,0) 0.0     ; theta_base_x
+   (8,0)  0.3     ; p_base_z (默认高度)
+   (9,0)  0.0     ; theta_base_z (yaw)
+   (10,0) 0.0     ; theta_base_y (pitch)
+   (11,0) 0.0     ; theta_base_x (roll)
 
-   ;; Leg Joint Positions: [LF, LH, RF, RH] ;;
-   (12,0) -0.20   ; LF_HAA
-   (13,0)  0.72   ; LF_HFE
-   (14,0) -1.44   ; LF_KFE
+   # 腿部关节位置: [LF, LH, RF, RH] (左前, 左后, 右前, 右后)
+   (12,0) -0.20   ; LF_HAA (髋部外展/内收)
+   (13,0)  0.72   ; LF_HFE (髋部屈曲/伸展)
+   (14,0) -1.44   ; LF_KFE (膝部屈曲/伸展)
    (15,0) -0.20   ; LH_HAA
    (16,0)  0.72   ; LH_HFE
    (17,0) -1.44   ; LH_KFE
@@ -174,12 +190,15 @@ initialState
    (23,0) -1.44   ; RH_KFE
 }
 
-; standard state weight matrix
+# --- 代价函数权重矩阵 ---
+
+# Q: 状态权重矩阵 (对角阵)
+# 用于惩罚状态与参考状态之间的误差
 Q
 {
-  scaling 1e+0
+  scaling 1e+0 ; # 缩放因子
 
-  ;; Normalized Centroidal Momentum: [linear, angular] ;;
+  # 归一化的质心动量
   (0,0)   15.0     ; vcom_x
   (1,1)   15.0     ; vcom_y
   (2,2)   100.0    ; vcom_z
@@ -187,15 +206,15 @@ Q
   (4,4)   30.0     ; L_y / robotMass
   (5,5)   30.0     ; L_z / robotMass
 
-  ;; Base Pose: [position, orientation] ;;
+  # 基座姿态
   (6,6)   1000.0   ; p_base_x
   (7,7)   1000.0   ; p_base_y
   (8,8)   1500.0   ; p_base_z
-  (9,9)   100.0    ; theta_base_z
-  (10,10) 300.0    ; theta_base_y
-  (11,11) 300.0    ; theta_base_x
+  (9,9)   100.0    ; theta_base_z (yaw)
+  (10,10) 300.0    ; theta_base_y (pitch)
+  (11,11) 300.0    ; theta_base_x (roll)
 
-  ;; Leg Joint Positions: [LF, LH, RF, RH] ;;
+  # 腿部关节位置
   (12,12) 5.0     ; LF_HAA
   (13,13) 5.0     ; LF_HFE
   (14,14) 2.5     ; LF_KFE
@@ -210,77 +229,67 @@ Q
   (23,23) 2.5     ; RH_KFE
 }
 
-; control weight matrix
+# R: 控制输入权重矩阵 (对角阵)
+# 用于惩罚控制输入的大小
 R
 {
-  scaling 1e-3
+  scaling 1e-3 ; # 缩放因子
 
-  ;; Feet Contact Forces: [LF, RF, LH, RH] ;;
-  (0,0)   1.0       ; left_front_force
-  (1,1)   1.0       ; left_front_force
-  (2,2)   1.0       ; left_front_force
-  (3,3)   1.0       ; right_front_force
-  (4,4)   1.0       ; right_front_force
-  (5,5)   1.0       ; right_front_force
-  (6,6)   1.0       ; left_hind_force
-  (7,7)   1.0       ; left_hind_force
-  (8,8)   1.0       ; left_hind_force
-  (9,9)   1.0       ; right_hind_force
-  (10,10) 1.0       ; right_hind_force
-  (11,11) 1.0       ; right_hind_force
+  # 足端接触力: [LF, RF, LH, RH]
+  (0,0)   1.0       ; left_front_force_x
+  (1,1)   1.0       ; left_front_force_y
+  (2,2)   1.0       ; left_front_force_z
+  (3,3)   1.0       ; right_front_force_x
+  ...
 
-  ;; foot velocity relative to base: [LF, LH, RF, RH] (uses the Jacobian at nominal configuration) ;;
+  # 足端相对基座的速度: [LF, LH, RF, RH]
   (12,12) 5000.0    ; x
-  (13,13) 5000.0    ; y
-  (14,14) 5000.0    ; z
-  (15,15) 5000.0    ; x
-  (16,16) 5000.0    ; y
-  (17,17) 5000.0    ; z
-  (18,18) 5000.0    ; x
-  (19,19) 5000.0    ; y
-  (20,20) 5000.0    ; z
-  (21,21) 5000.0    ; x
-  (22,22) 5000.0    ; y
-  (23,23) 5000.0    ; z
+  ...
 }
 
+# --- 约束设置 ---
+
+# 摩擦锥软约束
 frictionConeSoftConstraint
 {
-  frictionCoefficient    0.3
+  frictionCoefficient    0.3 ; # 摩擦系数
 
-  ; relaxed log barrier parameters
+  # 松弛对数障碍参数
   mu                     0.1
   delta                  5.0
 }
 
+# 自碰撞约束
 selfCollision
 {
-  ; Self Collision raw object pairs
+  # 自碰撞物体对 (原始定义)
   collisionObjectPairs
   {
   }
 
-  ; Self Collision pairs
+  # 自碰撞连杆对
   collisionLinkPairs
   {
-    [0] "LF_calf, RF_calf"
-    [1] "LH_calf, RH_calf"
-    [2] "LF_calf, LH_calf"
-    [3] "RF_calf, RH_calf"
-    [4] "LF_FOOT, RF_FOOT"
+    [0] "LF_calf, RF_calf" # 左前小腿 vs 右前小腿
+    [1] "LH_calf, RH_calf" # 左后小腿 vs 右后小腿
+    [2] "LF_calf, LH_calf" # 左前小腿 vs 左后小腿
+    [3] "RF_calf, RH_calf" # 右前小腿 vs 右后小腿
+    [4] "LF_FOOT, RF_FOOT" # ...
     [5] "LH_FOOT, RH_FOOT"
     [6] "LF_FOOT, LH_FOOT"
     [7] "RF_FOOT, RH_FOOT"
   }
 
-  minimumDistance  0.05
+  minimumDistance  0.05 ; # 最小安全距离 (m)
 
-  ; relaxed log barrier parameters
+  # 松弛对数障碍参数
   mu      1e-2
   delta   1e-3
 }
 
-; Whole body control
+# --- 全身控制器(WBC)任务设置 ---
+
+# 关节力矩限制任务
 torqueLimitsTask
 {
    (0,0)  33.5     ; HAA
@@ -288,32 +297,37 @@ torqueLimitsTask
    (2,0)  33.5     ; KFE
 }
 
+# 摩擦锥任务 (WBC层面)
 frictionConeTask
 {
   frictionCoefficient    0.3
 }
 
+# 摆动腿控制任务 (PD控制)
 swingLegTask
 {
-    kp                   350
-    kd                   37
+    kp                   350 ; # 比例增益
+    kd                   37  ; # 微分增益
 }
 
+# WBC中不同任务的权重
 weight
 {
-    swingLeg        100
-    baseAccel       1
-    contactForce    0.01
+    swingLeg        100   # 摆动腿任务权重
+    baseAccel       1     # 基座加速度任务权重
+    contactForce    0.01  # 接触力任务权重
 }
 
-; State Estimation
+# --- 状态估计设置 ---
+
+# 卡尔曼滤波器参数
 kalmanFilter
 {
-    footRadius                  0.02
-    imuProcessNoisePosition     0.02
-    imuProcessNoiseVelocity     0.02
-    footProcessNoisePosition    0.002
-    footSensorNoisePosition     0.005
-    footSensorNoiseVelocity     0.1
-    footHeightSensorNoise       0.01
+    footRadius                  0.02   # 足端半径
+    imuProcessNoisePosition     0.02   # IMU过程噪声(位置)
+    imuProcessNoiseVelocity     0.02   # IMU过程噪声(速度)
+    footProcessNoisePosition    0.002  # 足端过程噪声(位置)
+    footSensorNoisePosition     0.005  # 足端传感器噪声(位置)
+    footSensorNoiseVelocity     0.1    # 足端传感器噪声(速度)
+    footHeightSensorNoise       0.01   # 足端高度传感器噪声
 }

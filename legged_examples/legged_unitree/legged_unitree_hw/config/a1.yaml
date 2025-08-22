@@ -1,6 +1,14 @@
+# A1机器人硬件接口的配置文件
 legged_unitree_hw:
+  # 控制循环的频率 (Hz)
   loop_frequency: 500
+  # 控制周期的最大允许误差 (s)
+  # 如果实际周期与期望周期的差异超过此阈值，可能会打印警告
   cycle_time_error_threshold: 0.002
+  # 硬件控制线程的优先级 (0-99)
   thread_priority: 95
+  # 电机功率限制（具体单位未知，可能与SDK相关）
   power_limit: 4
+  # 足底接触力阈值 (N)
+  # 当传感器读数超过此值时，认为足底与地面接触
   contact_threshold: 40

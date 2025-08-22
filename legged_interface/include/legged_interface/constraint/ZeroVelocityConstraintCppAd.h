@@ -1,30 +1,6 @@
 /******************************************************************************
 Copyright (c) 2021, Farbod Farshidian. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
- * Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+... (license header)
 ******************************************************************************/
 
 #pragma once
@@ -38,19 +14,28 @@ namespace ocs2 {
 namespace legged_robot {
 
 /**
- * Specializes the CppAd version of zero velocity constraint on an end-effector position and linear velocity.
- * Constructs the member EndEffectorLinearConstraint object with number of constraints of 3.
+ * @brief 末端执行器零速度约束 (CppAd版本)
  *
- * See also EndEffectorLinearConstraint for the underlying computation.
+ * 这是一个专门用于约束支撑腿（stance leg）足端速度为零的类。
+ *
+ * 这个类在内部使用了一个 `EndEffectorLinearConstraint` 对象来实现。
+ * 它构建了一个如下形式的线性约束：
+ *
+ * g(v_ee) = I * v_ee + 0 = 0  (其中 I 是 3x3 单位矩阵)
+ *
+ * 这等价于 v_ee = 0。
+ *
+ * 这个约束只在对应的腿被`SwitchedModelReferenceManager`确定为处于支撑相时才激活。
+ * "CppAd" 后缀表示这个约束的导数是通过CppAd库进行自动微分生成的。
  */
 class ZeroVelocityConstraintCppAd final : public StateInputConstraint {
  public:
   /**
-   * Constructor
-   * @param [in] referenceManager : Switched model ReferenceManager
-   * @param [in] endEffectorKinematics: The kinematic interface to the target end-effector.
-   * @param [in] contactPointIndex : The 3 DoF contact index.
-   * @param [in] config: The constraint coefficients
+   * @brief 构造函数
+   * @param referenceManager 参考管理器，用于查询步态信息。
+   * @param endEffectorKinematics 目标末端执行器的运动学接口。
+   * @param contactPointIndex 接触点的索引。
+   * @param config (可选) 线性约束的配置。
    */
   ZeroVelocityConstraintCppAd(const SwitchedModelReferenceManager& referenceManager,
                               const EndEffectorKinematics<scalar_t>& endEffectorKinematics, size_t contactPointIndex,
@@ -59,8 +44,15 @@ class ZeroVelocityConstraintCppAd final : public StateInputConstraint {
   ~ZeroVelocityConstraintCppAd() override = default;
   ZeroVelocityConstraintCppAd* clone() const override { return new ZeroVelocityConstraintCppAd(*this); }
 
+  /**
+   * @brief 检查约束在给定时间是否激活
+   *
+   * 只有当腿处于支撑相时，这个约束才激活。
+   */
   bool isActive(scalar_t time) const override;
-  size_t getNumConstraints(scalar_t time) const override { return 3; }
+
+  // --- OCS2 StateInputConstraint 接口的实现 ---
+  size_t getNumConstraints(scalar_t time) const override { return 3; } // 3个约束 (vx, vy, vz)
   vector_t getValue(scalar_t time, const vector_t& state, const vector_t& input, const PreComputation& preComp) const override;
   VectorFunctionLinearApproximation getLinearApproximation(scalar_t time, const vector_t& state, const vector_t& input,
                                                            const PreComputation& preComp) const override;

@@ -1,4 +1,3 @@
-
 //
 // Created by qiayuan on 6/24/22.
 //
@@ -21,36 +20,44 @@
 #include <legged_common/hardware_interface/HybridJointInterface.h>
 
 namespace legged {
+/**
+ * @brief 腿式机器人硬件接口的基类
+ *
+ * 继承自 `hardware_interface::RobotHW`，这是 `ros_control` 框架中所有硬件接口的基类。
+ * 它定义了一个通用的腿式机器人硬件接口，聚合了所有必需的子接口（关节、IMU、接触等），
+ * 并提供了通用的初始化流程（如加载URDF）。
+ * 具体的机器人（如Unitree A1）硬件接口需要继承这个类并实现其 `read` 和 `write` 方法。
+ */
 class LeggedHW : public hardware_interface::RobotHW {
  public:
   LeggedHW() = default;
-  /** \brief Get necessary params from param server. Init hardware_interface.
+  /**
+   * @brief 初始化硬件接口
    *
-   * Get params from param server and check whether these params are set. Load urdf of robot. Set up transmission and
-   * joint limit. Get configuration of can bus and create data pointer which point to data received from Can bus.
-   *
-   * @param root_nh Root node-handle of a ROS node.
-   * @param robot_hw_nh Node-handle for robot hardware.
-   * @return True when init successful, False when failed.
+   * @param root_nh 全局ROS节点句柄
+   * @param robot_hw_nh 控制器私有的ROS节点句柄
+   * @return 如果初始化成功则为 true
    */
   bool init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw_nh) override;
 
  protected:
-  // Interface
-  hardware_interface::JointStateInterface jointStateInterface_;  // NOLINT(misc-non-private-member-variables-in-classes)
-  hardware_interface::ImuSensorInterface imuSensorInterface_;    // NOLINT(misc-non-private-member-variables-in-classes)
-  HybridJointInterface hybridJointInterface_;                    // NOLINT(misc-non-private-member-variables-in-classes)
-  ContactSensorInterface contactSensorInterface_;                // NOLINT(misc-non-private-member-variables-in-classes)
-  // URDF model of the robot
-  std::shared_ptr<urdf::Model> urdfModel_;  // NOLINT(misc-non-private-member-variables-in-classes)
+  // --- 硬件接口 ---
+  // 这些接口用于在 `ros_control` 框架中注册和管理硬件资源。
+  // 派生类需要通过这些接口来注册它们的硬件句柄。
+  hardware_interface::JointStateInterface jointStateInterface_;
+  hardware_interface::ImuSensorInterface imuSensorInterface_;
+  HybridJointInterface hybridJointInterface_;
+  ContactSensorInterface contactSensorInterface_;
+
+  // 机器人的URDF模型
+  std::shared_ptr<urdf::Model> urdfModel_;
 
  private:
-  /** \brief Load urdf of robot from param server.
+  /**
+   * @brief 从参数服务器加载URDF模型
    *
-   * Load urdf of robot from param server.
-   *
-   * @param rootNh Root node-handle of a ROS node
-   * @return True if successful.
+   * @param rootNh 全局ROS节点句柄
+   * @return 如果加载成功则为 true
    */
   bool loadUrdf(ros::NodeHandle& rootNh);
 };

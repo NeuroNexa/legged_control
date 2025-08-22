@@ -1,34 +1,50 @@
 <?xml version="1.0"?>
-
+<!--
+  这个xacro文件定义了一个名为 `IMU` 的宏，用于在URDF中创建一个IMU传感器。
+-->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="imu">
+    <!--
+      定义 `IMU` 宏
+      - connected_to: IMU所连接的父连杆的名称 (例如 "base")
+      - imu_name: IMU连杆和关节的名称
+      - xyz: IMU相对于父连杆的位置偏移
+      - rpy: IMU相对于父连杆的姿态偏移
+    -->
     <xacro:macro name="IMU" params="connected_to imu_name xyz:='0 0 0' rpy:='0 0 0' ">
-        <!-- Imu is fixed to the base link -->
+        <!-- 定义一个固定关节，将IMU连杆连接到指定的父连杆 -->
         <joint name="${imu_name}_joint" type="fixed">
             <origin xyz="${xyz}" rpy="${rpy}"/>
             <parent link="${connected_to}"/>
             <child link="${imu_name}"/>
         </joint>
-        <!-- Imu link -->
+
+        <!-- 定义IMU连杆本身 -->
         <link name="${imu_name}">
+            <!-- 惯性参数 (通常为一个很小的值，因为它只是一个虚拟的传感器连杆) -->
             <inertial>
                 <mass value="0.01"/>
                 <origin rpy="0 0 0" xyz="0 0 0"/>
                 <inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/>
             </inertial>
+            <!-- 视觉模型 (一个小的方块，用于在RViz中显示) -->
             <visual>
                 <origin rpy="0 0 0" xyz="0 0 0"/>
                 <geometry>
                     <box size="0.015 0.015 0.004"/>
                 </geometry>
             </visual>
+            <!-- 材质颜色 -->
             <material name="orange">
                 <color rgba="255 108 10 255"/>
             </material>
         </link>
+
+        <!-- Gazebo相关设置 -->
         <gazebo reference="${imu_name}">
             <material>Gazebo/Orange</material>
         </gazebo>
         <gazebo reference="${imu_name}_joint">
+            <!-- 阻止Gazebo将这个固定关节与父连杆合并，这对于某些插件是必要的 -->
             <disableFixedJointLumping>true</disableFixedJointLumping>
         </gazebo>
     </xacro:macro>

@@ -1,8 +1,22 @@
+# 这是一个ROS controllers的配置文件。
+# 它定义了将要被controller_manager加载的控制器。
 controllers:
+  # 关节状态控制器
+  # 它的作用是读取所有关节的状态（位置、速度、力），并将其发布到/joint_states话题上。
+  # 这是ROS中一个非常标准的控制器，用于可视化（如RViz）和其他需要关节状态的节点。
   joint_state_controller:
-    type: joint_state_controller/JointStateController
-    publish_rate: 100
+    type: joint_state_controller/JointStateController # 控制器类型
+    publish_rate: 100 # 发布频率 (Hz)
+
+  # 腿式机器人主控制器
+  # 这是核心的NMPC-WBC控制器。它从状态估计器获取机器人状态，
+  # 并计算发送给硬件的混合指令（期望位置、速度、Kp, Kd, 前馈力矩）。
   legged_controller:
-    type: legged/LeggedController
+    type: legged/LeggedController # 控制器类型
+
+  # 腿式机器人“作弊”控制器
+  # 这个控制器直接使用仿真环境中的真实状态（例如，完美的基座位置和速度），
+  # 而不是通过状态估计器。它主要用于算法开发和调试，以排除状态估计带来的影响。
+  # 注意：这个控制器绝不能在真实硬件上使用。
   legged_cheater_controller:
-    type: legged/LeggedCheaterController
+    type: legged/LeggedCheaterController # 控制器类型

@@ -1,43 +1,61 @@
+# 这是Aliengo机器人的参考（目标）状态的配置文件。
+# 它为控制器定义了一些默认的目标值和初始状态，以适应Aliengo的硬件。
+
+# 目标线速度 (米/秒)
 targetDisplacementVelocity          0.5;
+# 目标角速度 (弧度/秒)
 targetRotationVelocity              1.57;
 
+# 默认的质心（Center of Mass）高度 (米)
+# 注意: Aliengo比A1高，所以这个值也更大
 comHeight                           0.4
 
+# 默认的关节状态（站立姿态）
+# 单位是弧度
 defaultJointState
 {
-   (0,0)  -0.20   ; LF_HAA
-   (1,0)   0.62   ; LF_HFE
-   (2,0)  -1.24   ; LF_KFE
-   (3,0)  -0.20   ; LH_HAA
+   # 关节顺序: HAA (Hip Abduction/Adduction), HFE (Hip Flexion/Extension), KFE (Knee Flexion/Extension)
+   (0,0)  -0.20   ; LF_HAA (左前腿髋部外展/内收)
+   (1,0)   0.62   ; LF_HFE (左前腿髋部屈曲/伸展)
+   (2,0)  -1.24   ; LF_KFE (左前腿膝部屈曲/伸展)
+   (3,0)  -0.20   ; LH_HAA (左后腿...)
    (4,0)   0.62   ; LH_HFE
    (5,0)  -1.24   ; LH_KFE
-   (6,0)   0.20   ; RF_HAA
+   (6,0)   0.20   ; RF_HAA (右前腿...)
    (7,0)   0.62   ; RF_HFE
    (8,0)  -1.24   ; RF_KFE
-   (9,0)   0.20   ; RH_HAA
+   (9,0)   0.20   ; RH_HAA (右后腿...)
    (10,0)  0.62   ; RH_HFE
    (11,0) -1.24   ; RH_KFE
 }
 
+# 初始模式序列
+# 用于控制器启动时的初始步态规划
 initialModeSchedule
 {
+  # 模式序列：连续两个STANCE（站立）模式
   modeSequence
   {
     [0]  STANCE
     [1]  STANCE
   }
+  # 事件时间：在0.5秒时发生一次事件（但由于模式没变，实际无切换）
   eventTimes
   {
     [0]  0.5
   }
 }
 
+# 默认模式序列模板
+# 当没有外部指令时，控制器会使用的默认步态
 defaultModeSequenceTemplate
 {
+  # 模式序列：保持STANCE（站立）
   modeSequence
   {
     [0]  STANCE
   }
+  # 切换时间：周期为1秒
   switchingTimes
   {
     [0]  0.0

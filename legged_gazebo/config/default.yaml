@@ -1,9 +1,21 @@
+# Gazebo仿真硬件接口的默认配置文件
 gazebo:
+  # 延迟 (s)，可能用于模拟通信延迟，但在此代码中似乎未使用
   delay: 0.009
+
+  # IMU传感器配置
   imus:
+    # IMU传感器的名称，与URDF中IMU插件的名称对应
     base_imu:
+      # IMU的坐标系名称
       frame_id: base_imu
+      # 姿态的对角线协方差（roll, pitch, yaw）
       orientation_covariance_diagonal: [ 0.0012, 0.0012, 0.0012 ]
+      # 角速度的协方差
       angular_velocity_covariance: [ 0.0004, 0.0004, 0.0004 ]
+      # 线加速度的协方差
       linear_acceleration_covariance: [ 0.01, 0.01, 0.01 ]
+
+  # 接触传感器配置
+  # 列出所有接触传感器的名称，这些名称应与URDF中的连杆名称对应
   contacts: [ "LF_FOOT", "LH_FOOT", "RF_FOOT", "RH_FOOT" ]
