@@ -26,7 +26,7 @@
 
 namespace legged {
 bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHandle& controller_nh) {
-  // Get configuration file paths from the parameter server
+  // 从参数服务器获取配置文件路径
   std::string urdfFile;
   std::string taskFile;
   std::string referenceFile;
@@ -36,14 +36,14 @@ bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHand
   bool verbose = false;
   loadData::loadCppDataType(taskFile, "legged_robot_interface.verbose", verbose);
 
-  // Initialize the OCS2 legged interface, which sets up the optimal control problem
+  // 初始化 OCS2 legged 接口，它会设置最优控制问题
   setupLeggedInterface(taskFile, urdfFile, referenceFile, verbose);
-  // Initialize the MPC solver
+  // 初始化 MPC 求解器
   setupMpc();
-  // Initialize the Model-Reference Tracking (MRT) interface for thread-safe communication with the MPC
+  // 初始化用于与 MPC 进行线程安全通信的模型参考跟踪（MRT）接口
   setupMrt();
 
-  // Visualization
+  // 可视化
   ros::NodeHandle nh;
   CentroidalModelPinocchioMapping pinocchioMapping(leggedInterface_->getCentroidalModelInfo());
   eeKinematicsPtr_ = std::make_shared<PinocchioEndEffectorKinematics>(leggedInterface_->getPinocchioInterface(), pinocchioMapping,
@@ -53,7 +53,7 @@ bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHand
   selfCollisionVisualization_.reset(new LeggedSelfCollisionVisualization(leggedInterface_->getPinocchioInterface(),
                                                                          leggedInterface_->getGeometryInterface(), pinocchioMapping, nh));
 
-  // Get hardware handles from the RobotHW
+  // 从 RobotHW 获取硬件句柄
   auto* hybridJointInterface = robot_hw->get<HybridJointInterface>();
   std::vector<std::string> joint_names{"LF_HAA", "LF_HFE", "LF_KFE", "LH_HAA", "LH_HFE", "LH_KFE",
                                        "RF_HAA", "RF_HFE", "RF_KFE", "RH_HAA", "RH_HFE", "RH_KFE"};
@@ -66,96 +66,96 @@ bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHand
   }
   imuSensorHandle_ = robot_hw->get<hardware_interface::ImuSensorInterface>()->getHandle("base_imu");
 
-  // State Estimation
+  // 状态估计
   setupStateEstimate(taskFile, verbose);
 
-  // Whole Body Control
-  // Here, a Weighted WBC is used, but it could be replaced with HierarchicalWbc
+  // 全身控制
+  // 这里使用的是加权 WBC，但也可以替换为 HierarchicalWbc
   wbc_ = std::make_shared<WeightedWbc>(leggedInterface_->getPinocchioInterface(), leggedInterface_->getCentroidalModelInfo(),
                                        *eeKinematicsPtr_);
   wbc_->loadTasksSetting(taskFile, verbose);
 
-  // Safety Checker
+  // 安全检查器
   safetyChecker_ = std::make_shared<SafetyChecker>(leggedInterface_->getCentroidalModelInfo());
 
   return true;
 }
 
 void LeggedController::starting(const ros::Time& time) {
-  // Set the initial state of the robot.
+  // 设置机器人的初始状态。
   currentObservation_.state.setZero(leggedInterface_->getCentroidalModelInfo().stateDim);
-  updateStateEstimation(time, ros::Duration(0.002)); // Run state estimation once to get the initial state
+  updateStateEstimation(time, ros::Duration(0.002)); // 运行一次状态估计以获取初始状态
   currentObservation_.input.setZero(leggedInterface_->getCentroidalModelInfo().inputDim);
-  currentObservation_.mode = ModeNumber::STANCE; // Assume starting in stance mode
+  currentObservation_.mode = ModeNumber::STANCE; // 假设从站立模式开始
 
-  // Create a dummy target trajectory to initialize the MPC
+  // 创建一个虚拟的目标轨迹来初始化 MPC
   TargetTrajectories target_trajectories({currentObservation_.time}, {currentObservation_.state}, {currentObservation_.input});
 
-  // Set the first observation and command and wait for the MPC to compute the first policy
+  // 设置第一个观测和指令，并等待 MPC 计算出第一个策略
   mpcMrtInterface_->setCurrentObservation(currentObservation_);
   mpcMrtInterface_->getReferenceManager().setTargetTrajectories(target_trajectories);
-  ROS_INFO_STREAM("Waiting for the initial policy ...");
+  ROS_INFO_STREAM("等待初始策略 ...");
   while (!mpcMrtInterface_->initialPolicyReceived() && ros::ok()) {
     mpcMrtInterface_->advanceMpc();
     ros::WallRate(leggedInterface_->mpcSettings().mrtDesiredFrequency_).sleep();
   }
-  ROS_INFO_STREAM("Initial policy has been received.");
+  ROS_INFO_STREAM("已收到初始策略。");
 
   mpcRunning_ = true;
 }
 
 void LeggedController::update(const ros::Time& time, const ros::Duration& period) {
-  // 1. Estimate the current state of the robot from sensor data
+  // 1. 从传感器数据估计机器人的当前状态
   updateStateEstimation(time, period);
 
-  // 2. Update the MPC with the new current state
+  // 2. 用新的当前状态更新 MPC
   mpcMrtInterface_->setCurrentObservation(currentObservation_);
 
-  // 3. Get the latest policy from the MPC thread
+  // 3. 从 MPC 线程获取最新的策略
   mpcMrtInterface_->updatePolicy();
 
-  // 4. Evaluate the policy to get the desired state and input for the current time step
+  // 4. 评估策略以获取当前时间步的期望状态和输入
   vector_t optimizedState, optimizedInput;
-  size_t plannedMode = 0;  // The mode that is active at the time the policy is evaluated at.
+  size_t plannedMode = 0;  // 策略评估时刻的激活模式。
   mpcMrtInterface_->evaluatePolicy(currentObservation_.time, currentObservation_.state, optimizedState, optimizedInput, plannedMode);
 
-  // 5. Run the Whole Body Controller (WBC) to get the desired joint torques
+  // 5. 运行全身控制器 (WBC) 以获取期望的关节力矩
   currentObservation_.input = optimizedInput;
 
   wbcTimer_.startTimer();
-  // The WBC computes the optimal generalized accelerations, contact forces, and joint torques
+  // WBC 计算最优的广义加速度、接触力和关节力矩
   vector_t x = wbc_->update(optimizedState, optimizedInput, measuredRbdState_, plannedMode, period.toSec());
   wbcTimer_.endTimer();
 
-  // Extract the torques from the WBC solution
+  // 从 WBC 解中提取力矩
   vector_t torque = x.tail(12);
 
-  // Extract desired positions and velocities for the PD controller on the joints
+  // 提取用于关节 PD 控制器的期望位置和速度
   vector_t posDes = centroidal_model::getJointAngles(optimizedState, leggedInterface_->getCentroidalModelInfo());
   vector_t velDes = centroidal_model::getJointVelocities(optimizedInput, leggedInterface_->getCentroidalModelInfo());
 
-  // 6. Safety check: ensure the commands are safe before sending them to the hardware
+  // 6. 安全检查：在将指令发送到硬件之前，确保它们是安全的
   if (!safetyChecker_->check(currentObservation_, optimizedState, optimizedInput)) {
-    ROS_ERROR_STREAM("[Legged Controller] Safety check failed, stopping the controller.");
+    ROS_ERROR_STREAM("[Legged Controller] 安全检查失败，正在停止控制器。");
     stopRequest(time);
   }
 
-  // 7. Send commands to the hardware
+  // 7. 向硬件发送指令
   for (size_t j = 0; j < leggedInterface_->getCentroidalModelInfo().actuatedDofNum; ++j) {
-    // The hybrid joint handle takes position, velocity, and torque commands
+    // 混合关节句柄接受位置、速度和力矩指令
     hybridJointHandles_[j].setCommand(posDes(j), velDes(j), 0, 3, torque(j));
   }
 
-  // 8. Visualization
+  // 8. 可视化
   robotVisualizer_->update(currentObservation_, mpcMrtInterface_->getPolicy(), mpcMrtInterface_->getCommand());
   selfCollisionVisualization_->update(currentObservation_);
 
-  // Publish the observation for debugging and external tools
+  // 发布观测值，用于调试和外部工具
   observationPublisher_.publish(ros_msg_conversions::createObservationMsg(currentObservation_));
 }
 
 void LeggedController::updateStateEstimation(const ros::Time& time, const ros::Duration& period) {
-  // Read sensor data from the hardware interfaces
+  // 从硬件接口读取传感器数据
   vector_t jointPos(hybridJointHandles_.size()), jointVel(hybridJointHandles_.size());
   contact_flag_t contacts;
   Eigen::Quaternion<scalar_t> quat;
@@ -183,30 +183,30 @@ void LeggedController::updateStateEstimation(const ros::Time& time, const ros::D
     linearAccelCovariance(i) = imuSensorHandle_.getLinearAccelerationCovariance()[i];
   }
 
-  // Update the state estimator with the new sensor data
+  // 用新的传感器数据更新状态估计器
   stateEstimate_->updateJointStates(jointPos, jointVel);
   stateEstimate_->updateContact(contactFlag);
   stateEstimate_->updateImu(quat, angularVel, linearAccel, orientationCovariance, angularVelCovariance, linearAccelCovariance);
 
-  // Get the new state estimate
+  // 获取新的状态估计
   measuredRbdState_ = stateEstimate_->update(time, period);
 
-  // Update the observation for the MPC
+  // 更新 MPC 的观测值
   currentObservation_.time += period.toSec();
   scalar_t yawLast = currentObservation_.state(9);
   currentObservation_.state = rbdConversions_->computeCentroidalStateFromRbdModel(measuredRbdState_);
-  // Make sure yaw is continuous
+  // 确保偏航角是连续的
   currentObservation_.state(9) = yawLast + angles::shortest_angular_distance(yawLast, currentObservation_.state(9));
   currentObservation_.mode = stateEstimate_->getMode();
 }
 
 LeggedController::~LeggedController() {
-  // Stop the MPC thread
+  // 停止 MPC 线程
   controllerRunning_ = false;
   if (mpcThread_.joinable()) {
     mpcThread_.join();
   }
-  // Print benchmarking information
+  // 打印基准测试信息
   std::cerr << "########################################################################";
   std::cerr << "\n### MPC Benchmarking";
   std::cerr << "\n###   Maximum : " << mpcTimer_.getMaxIntervalInMilliseconds() << "[ms].";
@@ -231,10 +231,10 @@ void LeggedController::setupMpc() {
 
   const std::string robotName = "legged_robot";
   ros::NodeHandle nh;
-  // Gait receiver
+  // 步态接收器
   auto gaitReceiverPtr =
       std::make_shared<GaitReceiver>(nh, leggedInterface_->getSwitchedModelReferenceManagerPtr()->getGaitSchedule(), robotName);
-  // ROS ReferenceManager
+  // ROS 参考管理器
   auto rosReferenceManagerPtr = std::make_shared<RosReferenceManager>(robotName, leggedInterface_->getReferenceManagerPtr());
   rosReferenceManagerPtr->subscribe(nh);
   mpc_->getSolverPtr()->addSynchronizedModule(gaitReceiverPtr);
@@ -248,6 +248,7 @@ void LeggedController::setupMrt() {
   mpcTimer_.reset();
 
   controllerRunning_ = true;
+  // 为 MPC 创建一个独立的线程
   mpcThread_ = std::thread([&]() {
     while (controllerRunning_) {
       try {
@@ -267,6 +268,7 @@ void LeggedController::setupMrt() {
       }
     }
   });
+  // 为 MPC 线程设置实时优先级
   setThreadPriority(leggedInterface_->sqpSettings().threadPriority, mpcThread_);
 }
 

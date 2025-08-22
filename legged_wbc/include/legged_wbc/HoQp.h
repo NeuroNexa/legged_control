@@ -14,17 +14,16 @@
 namespace legged {
 /**
  * @class HoQp
- * @brief Implements a single level in a hierarchical optimization quadratic program (HoQP).
+ * @brief 实现分层优化二次规划（HoQP）中的单个层级。
  *
- * This class is designed to be used in a cascade to solve a sequence of prioritized tasks.
- * Each HoQp object represents one level of the hierarchy. It takes a task (defined as a QP)
- * and an optional pointer to a higher-priority problem.
+ * 此类设计用于级联解决一系列有优先级的任务。
+ * 每个 HoQp 对象代表层次结构中的一个层级。它接受一个任务（定义为一个 QP）
+ * 和一个可选的指向更高优先级问题的指针。
  *
- * The core idea is to solve the current task's QP within the null space of the higher-priority tasks.
- * This ensures that the solutions of higher-priority tasks are respected as hard constraints while
- * optimizing for the current task.
+ *核心思想是在更高优先级任务的零空间内解决当前任务的 QP。
+ * 这确保了在为当前任务进行优化时，更高优先级任务的解被作为硬约束来遵守。
  *
- * The QP solved at each level is of the form:
+ * 每个层级解决的 QP 形式如下：
  *   min 0.5 * x' * H * x + c' * x
  *   s.t. D * x <= f
  */
@@ -35,77 +34,76 @@ class HoQp {
   using HoQpPtr = std::shared_ptr<HoQp>;
 
   /**
-   * @brief Constructor for the highest-priority problem in the hierarchy.
-   * @param task The task to be solved at this level.
+   * @brief 层次结构中最高优先级问题的构造函数。
+   * @param task 在此层级要解决的任务。
    */
   explicit HoQp(const Task& task) : HoQp(task, nullptr){};
 
   /**
-   * @brief Constructor for a lower-priority problem.
-   * @param task The task to be solved at this level.
-   * @param higherProblem A pointer to the next higher-priority problem.
+   * @brief 较低优先级问题的构造函数。
+   * @param task 在此层级要解决的任务。
+   * @param higherProblem 指向下一个更高优先级问题的指针。
    */
   HoQp(Task task, HoQpPtr higherProblem);
 
-  /** @brief Gets the stacked null space projection matrix from all higher-priority tasks. */
+  /** @brief 获取来自所有更高优先级任务的堆叠零空间投影矩阵。 */
   matrix_t getStackedZMatrix() const { return stackedZ_; }
 
-  /** @brief Gets the stacked task formulation (A, b, D, f) from all higher-priority tasks. */
+  /** @brief 获取来自所有更高优先级任务的堆叠任务公式（A, b, D, f）。 */
   Task getStackedTasks() const { return stackedTasks_; }
 
-  /** @brief Gets the stacked solution for the slack variables from all higher-priority tasks. */
+  /** @brief 获取来自所有更高优先级任务的堆叠松弛变量解。 */
   vector_t getStackedSlackSolutions() const { return stackedSlackVars_; }
 
   /**
-   * @brief Gets the final solution for the decision variables.
-   * This reconstructs the solution by projecting the current level's solution out of the null space
-   * and adding the particular solution from the higher-priority levels.
-   * @return The optimal decision variable vector.
+   * @brief 获取决策变量的最终解。
+   * 通过将当前层级的解投影出零空间并加上来自更高优先级层级的特定解来重构解。
+   * @return 最优决策变量向量。
    */
   vector_t getSolutions() const {
     vector_t x = xPrev_ + stackedZPrev_ * decisionVarsSolutions_;
     return x;
   }
 
-  /** @brief Gets the total number of slack variables in the stacked problem. */
+  /** @brief 获取堆叠问题中松弛变量的总数。 */
   size_t getSlackedNumVars() const { return stackedTasks_.d_.rows(); }
 
  private:
-  // Initialization and problem setup
+  // 初始化和问题设置
   void initVars();
   void formulateProblem();
   void solveProblem();
 
-  // Methods to build the components of the QP
-  void buildHMatrix();   // Builds the Hessian matrix (H)
-  void buildCVector();   // Builds the gradient vector (c)
-  void buildDMatrix();   // Builds the inequality constraint matrix (D)
-  void buildFVector();   // Builds the inequality constraint vector (f)
+  // 构建 QP 组件的方法
+  void buildHMatrix();   // 构建 Hessian 矩阵 (H)
+  void buildCVector();   // 构建梯度向量 (c)
+  void buildDMatrix();   // 构建不等式约束矩阵 (D)
+  void buildFVector();   // 构建不等式约束向量 (f)
 
-  // Methods for handling the hierarchy
-  void buildZMatrix();          // Builds the null space projection matrix (Z)
-  void stackSlackSolutions();   // Stacks the slack variable solutions
+  // 处理层次结构的方法
+  void buildZMatrix();          // 构建零空间投影矩阵 (Z)
+  void stackSlackSolutions();   // 堆叠松弛变量解
 
-  // Task definitions
-  Task task_;                 // The task for the current level
-  Task stackedTasksPrev_;     // Stacked tasks from previous (higher-priority) levels
-  Task stackedTasks_;         // All tasks up to and including the current level
+  // 任务定义
+  Task task_;                 // 当前层级的任务
+  Task stackedTasksPrev_;     // 来自先前（更高优先级）层级的堆叠任务
+  Task stackedTasks_;         // 直到并包括当前层级的所有任务
 
-  HoQpPtr higherProblem_;     // Pointer to the next higher-priority problem
+  HoQpPtr higherProblem_;     // 指向下一个更高优先级问题的指针
 
   bool hasEqConstraints_{}, hasIneqConstraints_{};
   size_t numSlackVars_{}, numDecisionVars_{};
 
-  // Matrices for null-space projection
+  // 用于零空间投影的矩阵
   matrix_t stackedZPrev_, stackedZ_;
   vector_t stackedSlackSolutionsPrev_, xPrev_;
   size_t numPrevSlackVars_{};
 
-  // QP matrices (H, c, D, f)
+  // QP 矩阵 (H, c, D, f)
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> h_, d_;
   vector_t c_, f_;
 
-  // Solution vectors
+  // 解向量
   vector_t stackedSlackVars_, slackVarsSolutions_, decisionVarsSolutions_;
 };
 

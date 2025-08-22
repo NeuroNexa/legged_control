@@ -34,28 +34,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "legged_interface/SwitchedModelReferenceManager.h"
 
-// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
 namespace ocs2 {
 namespace legged_robot {
 
-/**
- * @class LeggedRobotInitializer
- * @brief Provides an initial guess for the state and input trajectories for the MPC solver.
- *
- * In OCS2, the Initializer is responsible for generating a "warm start" for the optimization problem.
- * A good initial guess can significantly reduce the number of iterations required for the solver to converge.
- *
- * This implementation uses the target trajectories from the SwitchedModelReferenceManager as the initial guess.
- * It also handles the initialization of the normalized momentum, which can either be set to zero or
- * extrapolated from the reference trajectory.
- */
 class LeggedRobotInitializer final : public Initializer {
  public:
-  /**
-   * @brief Constructor for LeggedRobotInitializer.
-   * @param info : The centroidal model information.
-   * @param referenceManager : The reference manager that provides the target trajectories.
-   * @param extendNormalizedMomentum : If true, it extrapolates the normalized momenta; otherwise, it sets them to zero.
+  /*
+   * Constructor
+   * @param [in] info : The centroidal model information.
+   * @param [in] referenceManager : Switched system reference manager.
+   * @param [in] extendNormalizedMomentum: If true, it extrapolates the normalized momenta; otherwise sets them to zero.
    */
   LeggedRobotInitializer(CentroidalModelInfo info, const SwitchedModelReferenceManager& referenceManager,
                          bool extendNormalizedMomentum = false);
@@ -63,14 +51,6 @@ class LeggedRobotInitializer final : public Initializer {
   ~LeggedRobotInitializer() override = default;
   LeggedRobotInitializer* clone() const override;
 
-  /**
-   * @brief Computes the initial guess for the input and the next state.
-   * @param time : The current time.
-   * @param state : The current state.
-   * @param nextTime : The time of the next step.
-   * @param[out] input : The computed initial input.
-   * @param[out] nextState : The computed initial next state.
-   */
   void compute(scalar_t time, const vector_t& state, scalar_t nextTime, vector_t& input, vector_t& nextState) override;
 
  private:

@@ -53,17 +53,9 @@ LeggedRobotInitializer* LeggedRobotInitializer::clone() const {
 /******************************************************************************************************/
 /******************************************************************************************************/
 void LeggedRobotInitializer::compute(scalar_t time, const vector_t& state, scalar_t nextTime, vector_t& input, vector_t& nextState) {
-  // Get the contact flags for the current time from the reference manager.
   const auto contactFlags = referenceManagerPtr_->getContactFlags(time);
-
-  // As an initial guess for the input, use the input required to compensate for gravity.
   input = weightCompensatingInput(info_, contactFlags);
-
-  // As an initial guess for the next state, use the current state.
   nextState = state;
-
-  // If not extending momentum, set the normalized momentum part of the next state to zero.
-  // This is a safe default, preventing the solver from starting with a large momentum value.
   if (!extendNormalizedMomentum_) {
     centroidal_model::getNormalizedMomentum(nextState, info_).setZero();
   }

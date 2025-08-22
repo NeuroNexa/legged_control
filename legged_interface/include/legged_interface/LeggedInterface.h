@@ -9,7 +9,7 @@
 #include <ocs2_centroidal_model/CentroidalModelInfo.h>
 #include <ocs2_core/Types.h>
 #include <ocs2_core/initialization/Initializer.h>
-#include <ocs2_core/penalties/Penalties.h>
+#include <ocs2_core/penalties/Penalties.hh>
 #include <ocs2_ddp/DDP_Settings.h>
 #include <ocs2_ipm/IpmSettings.h>
 #include <ocs2_legged_robot/common/ModelSettings.h>
@@ -28,19 +28,20 @@ using namespace ocs2;
 using namespace legged_robot;
 
 /**
- * @brief The LeggedInterface class.
- * It inherits from the ocs2::RobotInterface class and is responsible for setting up the entire optimal control problem for a legged robot.
- * This includes defining the robot model, constraints, cost functions, and solver settings.
- * It serves as a bridge between the high-level controller and the ocs2 library.
+ * @class LeggedInterface
+ * @brief LeggedInterface 类
+ * 它继承自 ocs2::RobotInterface 类，负责为足式机器人设置整个最优控制问题。
+ * 这包括定义机器人模型、约束、代价函数和求解器设置。
+ * 它充当了高级控制器和 ocs2 库之间的桥梁。
  */
 class LeggedInterface : public RobotInterface {
  public:
   /**
-   * @brief Constructor for the LeggedInterface class.
-   * @param taskFile Path to the task configuration file.
-   * @param urdfFile Path to the URDF file describing the robot.
-   * @param referenceFile Path to the reference configuration file.
-   * @param useHardFrictionConeConstraint Whether to use hard or soft friction cone constraints.
+   * @brief LeggedInterface 类的构造函数。
+   * @param taskFile 任务配置文件的路径。
+   * @param urdfFile 描述机器人的 URDF 文件的路径。
+   * @param referenceFile 参考配置文件的路径。
+   * @param useHardFrictionConeConstraint 是否使用硬摩擦锥约束。
    */
   LeggedInterface(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile,
                   bool useHardFrictionConeConstraint = false);
@@ -48,13 +49,12 @@ class LeggedInterface : public RobotInterface {
   ~LeggedInterface() override = default;
 
   /**
-   * @brief Sets up the optimal control problem.
-   * This function initializes the robot model, reference manager, pre-computation, and formulates the cost and constraint terms
-   * based on the provided configuration files.
-   * @param taskFile Path to the task configuration file.
-   * @param urdfFile Path to the URDF file.
-   * @param referenceFile Path to the reference configuration file.
-   * @param verbose Whether to print verbose output during setup.
+   * @brief 设置最优控制问题。
+   * 此函数根据提供的配置文件初始化机器人模型、参考管理器、预计算，并构建代价和约束项。
+   * @param taskFile 任务配置文件的路径。
+   * @param urdfFile URDF 文件的路径。
+   * @param referenceFile 参考配置文件的路径。
+   * @param verbose 是否在设置过程中打印详细输出。
    */
   virtual void setupOptimalControlProblem(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile,
                                           bool verbose);
@@ -80,115 +80,112 @@ class LeggedInterface : public RobotInterface {
 
  protected:
   /**
-   * @brief Sets up the robot model using Pinocchio.
-   * @param taskFile Path to the task file.
-   * @param urdfFile Path to the URDF file.
-   * @param referenceFile Path to the reference file.
-   * @param verbose Whether to print verbose info.
+   * @brief 使用 Pinocchio 设置机器人模型。
+   * @param taskFile 任务文件的路径。
+   * @param urdfFile URDF 文件的路径。
+   * @param referenceFile 参考文件的路径。
+   * @param verbose 是否打印详细信息。
    */
   virtual void setupModel(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile, bool verbose);
 
   /**
-   * @brief Sets up the reference manager for trajectory tracking.
-   * @param taskFile Path to the task file.
-   * @param urdfFile Path to the URDF file.
-   * @param referenceFile Path to the reference file.
-   * @param verbose Whether to print verbose info.
+   * @brief 设置用于轨迹跟踪的参考管理器。
+   * @param taskFile 任务文件的路径。
+   * @param urdfFile URDF 文件的路径。
+   * @param referenceFile 参考文件的路径。
+   * @param verbose 是否打印详细信息。
    */
   virtual void setupReferenceManager(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile,
                                      bool verbose);
 
   /**
-   * @brief Sets up the pre-computation module.
-   * @param taskFile Path to the task file.
-   * @param urdfFile Path to the URDF file.
-   * @param referenceFile Path to the reference file.
-   * @param verbose Whether to print verbose info.
+   * @brief 设置预计算模块。
+   * @param taskFile 任务文件的路径。
+   * @param urdfFile URDF 文件的路径。
+   * @param referenceFile 参考文件的路径。
+   * @param verbose 是否打印详细信息。
    */
   virtual void setupPreComputation(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile,
                                    bool verbose);
 
   /**
-   * @brief Loads the gait schedule from a file.
-   * @param file Path to the gait file.
-   * @param verbose Whether to print verbose info.
-   * @return A shared pointer to the GaitSchedule.
+   * @brief 从文件加载步态计划。
+   * @param file 步态文件的路径。
+   * @param verbose 是否打印详细信息。
+   * @return 指向 GaitSchedule 的共享指针。
    */
   std::shared_ptr<GaitSchedule> loadGaitSchedule(const std::string& file, bool verbose) const;
 
   /**
-   * @brief Creates the cost term for tracking the base state.
-   * @param taskFile Path to the task file.
-   * @param info The centroidal model info.
-   * @param verbose Whether to print verbose info.
-   * @return A unique pointer to the StateInputCost for base tracking.
+   * @brief 创建用于跟踪基座状态的代价项。
+   * @param taskFile 任务文件的路径。
+   * @param info 质心模型信息。
+   * @param verbose 是否打印详细信息。
+   * @return 指向用于基座跟踪的 StateInputCost 的唯一指针。
    */
   std::unique_ptr<StateInputCost> getBaseTrackingCost(const std::string& taskFile, const CentroidalModelInfo& info, bool verbose);
 
   /**
-   * @brief Initializes the weight matrix for the input cost.
-   * @param taskFile Path to the task file.
-   * @param info The centroidal model info.
-   * @return The input cost weight matrix.
+   * @brief 初始化输入代价的权重矩阵。
+   * @param taskFile 任务文件的路径。
+   * @param info 质心模型信息。
+   * @return 输入代价权重矩阵。
    */
   matrix_t initializeInputCostWeight(const std::string& taskFile, const CentroidalModelInfo& info);
 
   /**
-   * @brief Loads friction cone settings from a file.
-   * @param taskFile Path to the task file.
-   * @param verbose Whether to print verbose info.
-   * @return A pair containing the friction coefficient and penalty configuration.
+   * @brief 从文件加载摩擦锥设置。
+   * @param taskFile 任务文件的路径。
+   * @param verbose 是否打印详细信息。
+   * @return 包含摩擦系数和惩罚配置的 pair。
    */
   static std::pair<scalar_t, RelaxedBarrierPenalty::Config> loadFrictionConeSettings(const std::string& taskFile, bool verbose);
 
   /**
-   * @brief Creates a hard friction cone constraint.
-   * @param contactPointIndex Index of the contact point (foot).
-   * @param frictionCoefficient The friction coefficient.
-   * @return A unique pointer to the StateInputConstraint.
+   * @brief 创建一个硬摩擦锥约束。
+   * @param contactPointIndex 接触点（脚）的索引。
+   * @param frictionCoefficient 摩擦系数。
+   * @return 指向 StateInputConstraint 的唯一指针。
    */
   std::unique_ptr<StateInputConstraint> getFrictionConeConstraint(size_t contactPointIndex, scalar_t frictionCoefficient);
 
   /**
-   * @brief Creates a soft friction cone constraint (implemented as a cost).
-   * @param contactPointIndex Index of the contact point (foot).
-   * @param frictionCoefficient The friction coefficient.
-   * @param barrierPenaltyConfig Configuration for the relaxed barrier penalty.
-   * @return A unique pointer to the StateInputCost.
+   * @brief 创建一个软摩擦锥约束（实现为代价）。
+   * @param contactPointIndex 接触点（脚）的索引。
+   * @param frictionCoefficient 摩擦系数。
+   * @param barrierPenaltyConfig 松弛障碍惩罚的配置。
+   * @return 指向 StateInputCost 的唯一指针。
    */
   std::unique_ptr<StateInputCost> getFrictionConeSoftConstraint(size_t contactPointIndex, scalar_t frictionCoefficient,
                                                                 const RelaxedBarrierPenalty::Config& barrierPenaltyConfig);
-
   /**
-   * @brief Creates the end-effector kinematics module.
-   * @param footNames A vector of foot frame names.
-   * @param modelName The name of the robot model.
-   * @return A unique pointer to the EndEffectorKinematics.
+   * @brief 创建末端执行器运动学模块。
+   * @param footNames 脚部框架名称的向量。
+   * @param modelName 机器人模型的名称。
+   * @return 指向 EndEffectorKinematics 的唯一指针。
    */
   std::unique_ptr<EndEffectorKinematics<scalar_t>> getEeKinematicsPtr(const std::vector<std::string>& footNames,
                                                                       const std::string& modelName);
-
   /**
-   * @brief Creates a zero-velocity constraint for a contact point.
-   * @param eeKinematics The end-effector kinematics.
-   * @param contactPointIndex Index of the contact point (foot).
-   * @return A unique pointer to the StateInputConstraint.
+   * @brief 为接触点创建零速度约束。
+   * @param eeKinematics 末端执行器运动学。
+   * @param contactPointIndex 接触点（脚）的索引。
+   * @return 指向 StateInputConstraint 的唯一指针。
    */
   std::unique_ptr<StateInputConstraint> getZeroVelocityConstraint(const EndEffectorKinematics<scalar_t>& eeKinematics,
                                                                   size_t contactPointIndex);
-
   /**
-   * @brief Creates a self-collision avoidance constraint.
-   * @param pinocchioInterface The Pinocchio interface for the robot model.
-   * @param taskFile Path to the task file.
-   * @param prefix Prefix for loading parameters.
-   * @param verbose Whether to print verbose info.
-   * @return A unique pointer to the StateCost for self-collision.
+   * @brief 创建自碰撞避免约束。
+   * @param pinocchioInterface 机器人模型的 Pinocchio 接口。
+   * @param taskFile 任务文件的路径。
+   * @param prefix 加载参数的前缀。
+   * @param verbose 是否打印详细信息。
+   * @return 指向用于自碰撞的 StateCost 的唯一指针。
    */
   std::unique_ptr<StateCost> getSelfCollisionConstraint(const PinocchioInterface& pinocchioInterface, const std::string& taskFile,
                                                         const std::string& prefix, bool verbose);
 
-  // Robot model and solver settings
+  // 机器人模型和求解器设置
   ModelSettings modelSettings_;
   mpc::Settings mpcSettings_;
   ddp::Settings ddpSettings_;
@@ -196,16 +193,16 @@ class LeggedInterface : public RobotInterface {
   ipm::Settings ipmSettings_;
   const bool useHardFrictionConeConstraint_;
 
-  // ocs2 interfaces
+  // ocs2 接口
   std::unique_ptr<PinocchioInterface> pinocchioInterfacePtr_;
   CentroidalModelInfo centroidalModelInfo_;
   std::unique_ptr<PinocchioGeometryInterface> geometryInterfacePtr_;
 
-  // Optimal control problem definition
+  // 最优控制问题定义
   std::unique_ptr<OptimalControlProblem> problemPtr_;
   std::shared_ptr<SwitchedModelReferenceManager> referenceManagerPtr_;
 
-  // ocs2 rollout and initializer
+  // ocs2 rollout 和 initializer
   rollout::Settings rolloutSettings_;
   std::unique_ptr<RolloutBase> rolloutPtr_;
   std::unique_ptr<Initializer> initializerPtr_;

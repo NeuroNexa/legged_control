@@ -36,31 +36,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "legged_interface/SwitchedModelReferenceManager.h"
 
-// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
 namespace ocs2 {
 namespace legged_robot {
 
 /**
- * @class LeggedRobotStateInputQuadraticCost
- * @brief A quadratic cost on state and input, specialized for legged robots.
- *
- * This cost term penalizes the deviation of the state and input from a desired reference.
- * The cost is of the form: 0.5 * [x-x_ref, u-u_ref]' * [Q, P; P', R] * [x-x_ref, u-u_ref]
- *
- * A key feature of this implementation is that it redefines the nominal input `u_ref`. Instead of tracking a
- * zero input, it tracks the input required to compensate for gravity given the current contact configuration.
- * This means the R matrix penalizes inputs that deviate from the gravity-compensating effort, which is
- * often more desirable for legged robots.
+ * State-input tracking cost used for intermediate times
  */
 class LeggedRobotStateInputQuadraticCost final : public QuadraticStateInputCost {
  public:
-  /**
-   * @brief Constructor for LeggedRobotStateInputQuadraticCost.
-   * @param Q : The state weighting matrix.
-   * @param R : The input weighting matrix.
-   * @param info : The centroidal model information.
-   * @param referenceManager : The reference manager to get contact flags.
-   */
   LeggedRobotStateInputQuadraticCost(matrix_t Q, matrix_t R, CentroidalModelInfo info,
                                      const SwitchedModelReferenceManager& referenceManager)
       : QuadraticStateInputCost(std::move(Q), std::move(R)), info_(std::move(info)), referenceManagerPtr_(&referenceManager) {}
@@ -71,19 +54,11 @@ class LeggedRobotStateInputQuadraticCost final : public QuadraticStateInputCost 
  private:
   LeggedRobotStateInputQuadraticCost(const LeggedRobotStateInputQuadraticCost& rhs) = default;
 
-  /**
-   * @brief Computes the deviation of the state and input from their respective references.
-   * This override is the core of this class's specialization.
-   */
   std::pair<vector_t, vector_t> getStateInputDeviation(scalar_t time, const vector_t& state, const vector_t& input,
                                                        const TargetTrajectories& targetTrajectories) const override {
-    // Get the desired state from the reference trajectory.
-    const vector_t xNominal = targetTrajectories.getDesiredState(time);
-    // Get the current contact flags.
     const auto contactFlags = referenceManagerPtr_->getContactFlags(time);
-    // Calculate the nominal input required to compensate for gravity.
+    const vector_t xNominal = targetTrajectories.getDesiredState(time);
     const vector_t uNominal = weightCompensatingInput(info_, contactFlags);
-    // Return the deviations from the desired state and the gravity-compensating input.
     return {state - xNominal, input - uNominal};
   }
 
@@ -92,20 +67,10 @@ class LeggedRobotStateInputQuadraticCost final : public QuadraticStateInputCost 
 };
 
 /**
- * @class LeggedRobotStateQuadraticCost
- * @brief A quadratic cost on the final state, specialized for legged robots.
- *
- * This cost term is typically used at the end of the MPC horizon to penalize the
- * deviation of the final state from a desired terminal state.
+ * State tracking cost used for the final time
  */
 class LeggedRobotStateQuadraticCost final : public QuadraticStateCost {
  public:
-  /**
-   * @brief Constructor for LeggedRobotStateQuadraticCost.
-   * @param Q : The state weighting matrix.
-   * @param info : The centroidal model information.
-   * @param referenceManager : The reference manager.
-   */
   LeggedRobotStateQuadraticCost(matrix_t Q, CentroidalModelInfo info, const SwitchedModelReferenceManager& referenceManager)
       : QuadraticStateCost(std::move(Q)), info_(std::move(info)), referenceManagerPtr_(&referenceManager) {}
 
@@ -115,10 +80,8 @@ class LeggedRobotStateQuadraticCost final : public QuadraticStateCost {
  private:
   LeggedRobotStateQuadraticCost(const LeggedRobotStateQuadraticCost& rhs) = default;
 
-  /**
-   * @brief Computes the deviation of the state from its reference.
-   */
   vector_t getStateDeviation(scalar_t time, const vector_t& state, const TargetTrajectories& targetTrajectories) const override {
+    const auto contactFlags = referenceManagerPtr_->getContactFlags(time);
     const vector_t xNominal = targetTrajectories.getDesiredState(time);
     return state - xNominal;
   }

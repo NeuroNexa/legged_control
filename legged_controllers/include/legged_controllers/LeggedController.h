@@ -26,20 +26,20 @@ using namespace legged_robot;
 
 /**
  * @class LeggedController
- * @brief The main controller for the legged robot.
+ * @brief 足式机器人的主控制器。
  *
- * This class implements the `controller_interface::MultiInterfaceController` and serves as the central hub
- * for the entire control pipeline. It initializes and manages all the major components, including:
- * - State Estimation: Estimates the robot's current state from sensor data.
- * - Legged Interface: Sets up the optimal control problem for the MPC.
- * - MPC (Model Predictive Control): Computes an optimal state and input trajectory over a future horizon.
- * - WBC (Whole Body Control): Calculates the joint torques required to track the MPC's trajectory.
+ * 此类实现了 `controller_interface::MultiInterfaceController`，并作为整个控制流程的中心枢纽。
+ * 它初始化并管理所有主要组件，包括：
+ * - 状态估计：从传感器数据估计机器人的当前状态。
+ * - Legged Interface：为 MPC 设置最优控制问题。
+ * - MPC (模型预测控制)：在未来的时间范围内计算最优的状态和输入轨迹。
+ * - WBC (全身控制)：计算跟踪 MPC 轨迹所需的关节力矩。
  *
- * The controller runs two main loops:
- * 1. The `update` loop (real-time): Runs at the frequency of the controller manager. It performs state estimation,
- *    runs the WBC, and sends commands to the hardware.
- * 2. The MPC loop (non-real-time): Runs in a separate thread. It continuously solves the optimal control problem
- *    to provide the latest reference trajectory to the real-time loop.
+ * 控制器运行两个主循环：
+ * 1. `update` 循环 (实时)：以控制器管理器的频率运行。它执行状态估计，
+ *    运行 WBC，并向硬件发送命令。
+ * 2. MPC 循环 (非实时)：在单独的线程中运行。它不断解决最优控制问题，
+ *    为实时循环提供最新的参考轨迹。
  */
 class LeggedController : public controller_interface::MultiInterfaceController<HybridJointInterface, hardware_interface::ImuSensorInterface,
                                                                                ContactSensorInterface> {
@@ -48,87 +48,86 @@ class LeggedController : public controller_interface::MultiInterfaceController<H
   ~LeggedController() override;
 
   /**
-   * @brief Initializes the controller.
-   * @param robot_hw : A pointer to the robot's hardware interface.
-   * @param controller_nh : A NodeHandle for the controller's namespace.
-   * @return True if initialization is successful.
+   * @brief 初始化控制器。
+   * @param robot_hw 指向机器人硬件接口的指针。
+   * @param controller_nh 控制器命名空间的 NodeHandle。
+   * @return 如果初始化成功，则为 true。
    */
   bool init(hardware_interface::RobotHW* robot_hw, ros::NodeHandle& controller_nh) override;
 
   /**
-   * @brief The real-time update loop.
-   * @param time : The current time.
-   * @param period : The time elapsed since the last update.
+   * @brief 实时更新循环。
+   * @param time 当前时间。
+   * @param period 自上次更新以来经过的时间。
    */
   void update(const ros::Time& time, const ros::Duration& period) override;
 
   /**
-   * @brief Called when the controller is started.
-   * @param time : The time at which the controller is started.
+   * @brief 控制器启动时调用。
+   * @param time 控制器启动的时间。
    */
   void starting(const ros::Time& time) override;
 
   /**
-   * @brief Called when the controller is stopped.
+   * @brief 控制器停止时调用。
    */
   void stopping(const ros::Time& /*time*/) override { mpcRunning_ = false; }
 
  protected:
   /**
-   * @brief Updates the state estimate from sensor data.
+   * @brief 从传感器数据更新状态估计。
    */
   virtual void updateStateEstimation(const ros::Time& time, const ros::Duration& period);
 
-  // Setup methods for the main components
+  // 主要组件的设置方法
   virtual void setupLeggedInterface(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile,
                                     bool verbose);
   virtual void setupMpc();
-  virtual void setupMrt(); // Model-Reference Tracking (MRT) for communication with the MPC thread
+  virtual void setupMrt(); // 模型参考跟踪（MRT），用于与 MPC 线程进行通信
   virtual void setupStateEstimate(const std::string& taskFile, bool verbose);
 
-  // Hardware and OCS2 Interfaces
+  // 硬件和 OCS2 接口
   std::shared_ptr<LeggedInterface> leggedInterface_;
   std::shared_ptr<PinocchioEndEffectorKinematics> eeKinematicsPtr_;
   std::vector<HybridJointHandle> hybridJointHandles_;
   std::vector<ContactSensorHandle> contactHandles_;
   hardware_interface::ImuSensorHandle imuSensorHandle_;
 
-  // State Estimation
+  // 状态估计
   SystemObservation currentObservation_;
-  vector_t measuredRbdState_; // Full rigid body state vector
+  vector_t measuredRbdState_; // 完整的刚体状态向量
   std::shared_ptr<StateEstimateBase> stateEstimate_;
   std::shared_ptr<CentroidalModelRbdConversions> rbdConversions_;
 
-  // Whole Body Control
+  // 全身控制
   std::shared_ptr<WbcBase> wbc_;
   std::shared_ptr<SafetyChecker> safetyChecker_;
 
-  // Nonlinear MPC
+  // 非线性 MPC
   std::shared_ptr<MPC_BASE> mpc_;
   std::shared_ptr<MPC_MRT_Interface> mpcMrtInterface_;
 
-  // Visualization
+  // 可视化
   std::shared_ptr<LeggedRobotVisualizer> robotVisualizer_;
   std::shared_ptr<LeggedSelfCollisionVisualization> selfCollisionVisualization_;
   ros::Publisher observationPublisher_;
 
  private:
-  // MPC thread management
+  // MPC 线程管理
   std::thread mpcThread_;
   std::atomic_bool controllerRunning_{}, mpcRunning_{};
 
-  // Timers for benchmarking
+  // 用于基准测试的计时器
   benchmark::RepeatedTimer mpcTimer_;
   benchmark::RepeatedTimer wbcTimer_;
 };
 
 /**
  * @class LeggedCheaterController
- * @brief A derived controller that uses ground truth state information.
+ * @brief 一个使用地面真值状态信息的派生控制器。
  *
- * This "cheater" controller is used for debugging and development, typically in simulation.
- * It bypasses the state estimation module and instead gets perfect state information
- * directly from the simulator (e.g., Gazebo).
+ * 这个“作弊”控制器用于调试和开发，通常在仿真中使用。
+ * 它绕过状态估计模块，直接从模拟器（例如 Gazebo）获取完美的状态信息。
  */
 class LeggedCheaterController : public LeggedController {
  protected:

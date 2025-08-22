@@ -34,27 +34,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "legged_interface/SwitchedModelReferenceManager.h"
 #include "legged_interface/constraint/EndEffectorLinearConstraint.h"
 
-// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
 namespace ocs2 {
 namespace legged_robot {
 
 /**
- * @class NormalVelocityConstraintCppAd
- * @brief This class constrains the velocity of a foot in the direction normal to the contact surface.
- * It is typically used for swing feet to enforce a desired touchdown velocity, contributing to a smooth landing.
- * This class is a specialization of the more general EndEffectorLinearConstraint, configured to
- * constrain a single dimension of velocity. It uses CppAD for automatic differentiation.
- * The constraint is active only when the reference manager indicates that the foot is NOT in contact.
+ * Specializes the CppAd version of normal velocity constraint on an end-effector position and linear velocity.
+ * Constructs the member EndEffectorLinearConstraint object with number of constraints of 1.
  *
  * See also EndEffectorLinearConstraint for the underlying computation.
  */
 class NormalVelocityConstraintCppAd final : public StateInputConstraint {
  public:
   /**
-   * @brief Constructor for the NormalVelocityConstraintCppAd.
-   * @param referenceManager : Switched model ReferenceManager to check for contact.
-   * @param endEffectorKinematics : The kinematic interface to the target end-effector.
-   * @param contactPointIndex : The 3-DOF contact index this constraint applies to.
+   * Constructor
+   * @param [in] referenceManager : Switched model ReferenceManager
+   * @param [in] endEffectorKinematics: The kinematic interface to the target end-effector.
+   * @param [in] contactPointIndex : The 3 DoF contact index.
    */
   NormalVelocityConstraintCppAd(const SwitchedModelReferenceManager& referenceManager,
                                 const EndEffectorKinematics<scalar_t>& endEffectorKinematics, size_t contactPointIndex);
@@ -62,11 +57,6 @@ class NormalVelocityConstraintCppAd final : public StateInputConstraint {
   ~NormalVelocityConstraintCppAd() override = default;
   NormalVelocityConstraintCppAd* clone() const override { return new NormalVelocityConstraintCppAd(*this); }
 
-  /**
-   * @brief Checks if the constraint is active at a given time (i.e., if the foot is in a swing phase).
-   * @param time : The time to check.
-   * @return True if the constraint is active, false otherwise.
-   */
   bool isActive(scalar_t time) const override;
   size_t getNumConstraints(scalar_t time) const override { return 1; }
   vector_t getValue(scalar_t time, const vector_t& state, const vector_t& input, const PreComputation& preComp) const override;
@@ -77,7 +67,7 @@ class NormalVelocityConstraintCppAd final : public StateInputConstraint {
   NormalVelocityConstraintCppAd(const NormalVelocityConstraintCppAd& rhs);
 
   const SwitchedModelReferenceManager* referenceManagerPtr_;
-  std::unique_ptr<EndEffectorLinearConstraint> eeLinearConstraintPtr_; // The underlying linear constraint object
+  std::unique_ptr<EndEffectorLinearConstraint> eeLinearConstraintPtr_;
   const size_t contactPointIndex_;
 };
 

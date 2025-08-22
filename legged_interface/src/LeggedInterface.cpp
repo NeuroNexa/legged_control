@@ -38,34 +38,34 @@ namespace legged {
 LeggedInterface::LeggedInterface(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile,
                                  bool useHardFrictionConeConstraint)
     : useHardFrictionConeConstraint_(useHardFrictionConeConstraint) {
-  // Check that the task file exists
+  // 检查任务配置文件是否存在
   boost::filesystem::path taskFilePath(taskFile);
   if (boost::filesystem::exists(taskFilePath)) {
-    std::cerr << "[LeggedInterface] Loading task file: " << taskFilePath << std::endl;
+    std::cerr << "[LeggedInterface] 加载任务文件: " << taskFilePath << std::endl;
   } else {
-    throw std::invalid_argument("[LeggedInterface] Task file not found: " + taskFilePath.string());
+    throw std::invalid_argument("[LeggedInterface] 任务文件未找到: " + taskFilePath.string());
   }
 
-  // Check that the URDF file exists
+  // 检查 URDF 文件是否存在
   boost::filesystem::path urdfFilePath(urdfFile);
   if (boost::filesystem::exists(urdfFilePath)) {
-    std::cerr << "[LeggedInterface] Loading Pinocchio model from: " << urdfFilePath << std::endl;
+    std::cerr << "[LeggedInterface] 从以下路径加载 Pinocchio 模型: " << urdfFilePath << std::endl;
   } else {
-    throw std::invalid_argument("[LeggedInterface] URDF file not found: " + urdfFilePath.string());
+    throw std::invalid_argument("[LeggedInterface] URDF 文件未找到: " + urdfFilePath.string());
   }
 
-  // Check that the reference file exists
+  // 检查参考配置文件是否存在
   boost::filesystem::path referenceFilePath(referenceFile);
   if (boost::filesystem::exists(referenceFilePath)) {
-    std::cerr << "[LeggedInterface] Loading target command settings from: " << referenceFilePath << std::endl;
+    std::cerr << "[LeggedInterface] 加载目标指令设置: " << referenceFilePath << std::endl;
   } else {
-    throw std::invalid_argument("[LeggedInterface] targetCommand file not found: " + referenceFilePath.string());
+    throw std::invalid_argument("[LeggedInterface] 目标指令文件未找到: " + referenceFilePath.string());
   }
 
   bool verbose = false;
   loadData::loadCppDataType(taskFile, "legged_robot_interface.verbose", verbose);
 
-  // Load settings from configuration files
+  // 从配置文件加载设置
   modelSettings_ = loadModelSettings(taskFile, "model_settings", verbose);
   mpcSettings_ = mpc::loadSettings(taskFile, "mpc", verbose);
   ddpSettings_ = ddp::loadSettings(taskFile, "ddp", verbose);
@@ -79,67 +79,67 @@ LeggedInterface::LeggedInterface(const std::string& taskFile, const std::string&
 /******************************************************************************************************/
 void LeggedInterface::setupOptimalControlProblem(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile,
                                                  bool verbose) {
-  // Set up the robot model
+  // 设置机器人模型
   setupModel(taskFile, urdfFile, referenceFile, verbose);
 
-  // Set up the initial state
+  // 设置初始状态
   initialState_.setZero(centroidalModelInfo_.stateDim);
   loadData::loadEigenMatrix(taskFile, "initialState", initialState_);
 
-  // Set up the reference manager
+  // 设置参考管理器
   setupReferenceManager(taskFile, urdfFile, referenceFile, verbose);
 
-  // Create the optimal control problem
+  // 创建最优控制问题
   problemPtr_ = std::make_unique<OptimalControlProblem>();
 
-  // Set up the dynamics
+  // 设置动力学
   std::unique_ptr<SystemDynamicsBase> dynamicsPtr;
   dynamicsPtr = std::make_unique<LeggedRobotDynamicsAD>(*pinocchioInterfacePtr_, centroidalModelInfo_, "dynamics", modelSettings_);
   problemPtr_->dynamicsPtr = std::move(dynamicsPtr);
 
-  // Set up the cost function
+  // 设置代价函数
   problemPtr_->costPtr->add("baseTrackingCost", getBaseTrackingCost(taskFile, centroidalModelInfo_, verbose));
 
-  // Set up the constraints
-  // Load friction cone settings
+  // 设置约束
+  // 加载摩擦锥设置
   scalar_t frictionCoefficient = 0.7;
   RelaxedBarrierPenalty::Config barrierPenaltyConfig;
   std::tie(frictionCoefficient, barrierPenaltyConfig) = loadFrictionConeSettings(taskFile, verbose);
 
-  // Add constraints for each contact foot
+  // 为每个接触的脚添加约束
   for (size_t i = 0; i < centroidalModelInfo_.numThreeDofContacts; i++) {
     const std::string& footName = modelSettings_.contactNames3DoF[i];
     auto eeKinematicsPtr = getEeKinematicsPtr({footName}, footName);
 
-    // Friction cone constraint (either hard or soft)
+    // 摩擦锥约束（硬约束或软约束）
     if (useHardFrictionConeConstraint_) {
       problemPtr_->inequalityConstraintPtr->add(footName + "_frictionCone", getFrictionConeConstraint(i, frictionCoefficient));
     } else {
       problemPtr_->softConstraintPtr->add(footName + "_frictionCone",
                                           getFrictionConeSoftConstraint(i, frictionCoefficient, barrierPenaltyConfig));
     }
-    // Zero force constraint for swing feet
+    // 摆动脚的零力约束
     problemPtr_->equalityConstraintPtr->add(footName + "_zeroForce", std::unique_ptr<StateInputConstraint>(new ZeroForceConstraint(
                                                                          *referenceManagerPtr_, i, centroidalModelInfo_)));
-    // Zero velocity constraint for stance feet
+    // 支撑脚的零速度约束
     problemPtr_->equalityConstraintPtr->add(footName + "_zeroVelocity", getZeroVelocityConstraint(*eeKinematicsPtr, i));
-    // Normal velocity constraint for swing feet (e.g., to enforce touchdown velocity)
+    // 摆动脚的法向速度约束（例如，用于强制执行触地速度）
     problemPtr_->equalityConstraintPtr->add(
         footName + "_normalVelocity",
         std::unique_ptr<StateInputConstraint>(new NormalVelocityConstraintCppAd(*referenceManagerPtr_, *eeKinematicsPtr, i)));
   }
 
-  // Self-collision avoidance constraint
+  // 自碰撞避免约束
   problemPtr_->stateSoftConstraintPtr->add("selfCollision",
                                            getSelfCollisionConstraint(*pinocchioInterfacePtr_, taskFile, "selfCollision", verbose));
 
-  // Set up the pre-computation module
+  // 设置预计算模块
   setupPreComputation(taskFile, urdfFile, referenceFile, verbose);
 
-  // Set up the rollout
+  // 设置 rollout
   rolloutPtr_ = std::make_unique<TimeTriggeredRollout>(*problemPtr_->dynamicsPtr, rolloutSettings_);
 
-  // Set up the initializer
+  // 设置 initializer
   constexpr bool extendNormalizedNomentum = true;
   initializerPtr_ = std::make_unique<LeggedRobotInitializer>(centroidalModelInfo_, *referenceManagerPtr_, extendNormalizedNomentum);
 }

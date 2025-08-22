@@ -1,28 +1,16 @@
-# Configuration for the joy_teleop node.
-# This file defines how joystick inputs are mapped to ROS messages.
 teleop:
-  # This section defines a "walk" command profile.
   walk:
-    # The command will be published as a ROS topic.
     type: topic
-    # The message type to be published.
     message_type: geometry_msgs/Twist
-    # The name of the topic to publish to.
     topic_name: cmd_vel
-    # A "deadman" button. The commands will only be published while this button is held down.
-    # Button indices are specific to the joystick model. '4' is often the left bumper (L1).
     deadman_buttons: [ 4 ]
-    # Defines how joystick axes are mapped to fields in the Twist message.
     axis_mappings:
-        # Maps joystick axis 0 to the angular.z field (yaw velocity).
       - axis: 0
         target: angular.z
-        scale: 3.1415 # Scales the raw axis value [-1, 1] to a desired range.
-        # Maps joystick axis 1 to the linear.x field (forward/backward velocity).
+        scale: 3.1415
       - axis: 1
         target: linear.x
         scale: 1.0
-        # Maps joystick axis 2 to the linear.y field (left/right velocity).
       - axis: 2
         target: linear.y
         scale: 0.8

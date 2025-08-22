@@ -36,57 +36,29 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ocs2_pinocchio_interface/PinocchioInterface.h>
 
 #include <ocs2_centroidal_model/CentroidalModelPinocchioMapping.h>
+
 #include <ocs2_legged_robot/common/ModelSettings.h>
 
 #include "legged_interface/constraint/EndEffectorLinearConstraint.h"
 #include "legged_interface/constraint/SwingTrajectoryPlanner.h"
 
-// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
 namespace ocs2 {
 namespace legged_robot {
 
-/**
- * @class LeggedRobotPreComputation
- * @brief A class for caching computations that are shared across different modules of the optimal control problem.
- *
- * In OCS2, the PreComputation module is called by the solver before evaluating the cost and constraints at each
- * time step. This allows for performing expensive computations once and caching the results (e.g., forward kinematics)
- * so they can be reused by various cost and constraint terms without redundant calculations.
- *
- * This specific implementation updates the Pinocchio model with the current state and caches the configuration
- * for the normal velocity constraints on the end-effectors.
- */
+/** Callback for caching and reference update */
 class LeggedRobotPreComputation : public PreComputation {
  public:
-  /**
-   * @brief Constructor for LeggedRobotPreComputation.
-   * @param pinocchioInterface : The Pinocchio interface for the robot model.
-   * @param info : The centroidal model information.
-   * @param swingTrajectoryPlanner : The planner for swing foot trajectories.
-   * @param settings : The robot model settings.
-   */
   LeggedRobotPreComputation(PinocchioInterface pinocchioInterface, CentroidalModelInfo info,
                             const SwingTrajectoryPlanner& swingTrajectoryPlanner, ModelSettings settings);
-
   ~LeggedRobotPreComputation() override = default;
 
   LeggedRobotPreComputation* clone() const override { return new LeggedRobotPreComputation(*this); }
 
-  /**
-   * @brief This method is called by the solver to trigger the pre-computation.
-   * @param request : A set of flags indicating which modules require the pre-computation.
-   * @param t : The current time.
-   * @param x : The current state vector.
-   * @param u : The current input vector.
-   */
   void request(RequestSet request, scalar_t t, const vector_t& x, const vector_t& u) override;
 
-  /** @brief Gets the cached configurations for the end-effector normal velocity constraints. */
   const std::vector<EndEffectorLinearConstraint::Config>& getEeNormalVelocityConstraintConfigs() const { return eeNormalVelConConfigs_; }
 
-  /** @brief Gets a mutable reference to the cached Pinocchio interface. */
   PinocchioInterface& getPinocchioInterface() { return pinocchioInterface_; }
-  /** @brief Gets a constant reference to the cached Pinocchio interface. */
   const PinocchioInterface& getPinocchioInterface() const { return pinocchioInterface_; }
 
  protected:
@@ -94,12 +66,11 @@ class LeggedRobotPreComputation : public PreComputation {
 
  private:
   PinocchioInterface pinocchioInterface_;
-  const CentroidalModelInfo info_;
+  CentroidalModelInfo info_;
   const SwingTrajectoryPlanner* swingTrajectoryPlannerPtr_;
   std::unique_ptr<CentroidalModelPinocchioMapping> mappingPtr_;
   const ModelSettings settings_;
 
-  // Cached data
   std::vector<EndEffectorLinearConstraint::Config> eeNormalVelConConfigs_;
 };
 

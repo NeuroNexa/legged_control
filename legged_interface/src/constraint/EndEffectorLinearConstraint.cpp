@@ -41,7 +41,6 @@ EndEffectorLinearConstraint::EndEffectorLinearConstraint(const EndEffectorKinema
       endEffectorKinematicsPtr_(endEffectorKinematics.clone()),
       numConstraints_(numConstraints),
       config_(std::move(config)) {
-  // This constraint is designed to work with a single end-effector.
   if (endEffectorKinematicsPtr_->getIds().size() != 1) {
     throw std::runtime_error("[EndEffectorLinearConstraint] this class only accepts a single end-effector!");
   }
@@ -50,7 +49,6 @@ EndEffectorLinearConstraint::EndEffectorLinearConstraint(const EndEffectorKinema
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
-// Standard copy constructor
 EndEffectorLinearConstraint::EndEffectorLinearConstraint(const EndEffectorLinearConstraint& rhs)
     : StateInputConstraint(rhs),
       endEffectorKinematicsPtr_(rhs.endEffectorKinematicsPtr_->clone()),
@@ -61,7 +59,6 @@ EndEffectorLinearConstraint::EndEffectorLinearConstraint(const EndEffectorLinear
 /******************************************************************************************************/
 /******************************************************************************************************/
 void EndEffectorLinearConstraint::configure(Config&& config) {
-  // Assert that the provided configuration has the correct dimensions.
   assert(config.b.rows() == numConstraints_);
   assert(config.Ax.size() > 0 || config.Av.size() > 0);
   assert((config.Ax.size() > 0 && config.Ax.rows() == numConstraints_) || config.Ax.size() == 0);
@@ -76,14 +73,11 @@ void EndEffectorLinearConstraint::configure(Config&& config) {
 /******************************************************************************************************/
 vector_t EndEffectorLinearConstraint::getValue(scalar_t time, const vector_t& state, const vector_t& input,
                                                const PreComputation& preComp) const {
-  // Compute the constraint value: g = A_x * x_ee + A_v * v_ee + b
   vector_t f = config_.b;
   if (config_.Ax.size() > 0) {
-    // Get end-effector position and add the position term
     f.noalias() += config_.Ax * endEffectorKinematicsPtr_->getPosition(state).front();
   }
   if (config_.Av.size() > 0) {
-    // Get end-effector velocity and add the velocity term
     f.noalias() += config_.Av * endEffectorKinematicsPtr_->getVelocity(state, input).front();
   }
   return f;
@@ -95,32 +89,21 @@ vector_t EndEffectorLinearConstraint::getValue(scalar_t time, const vector_t& st
 VectorFunctionLinearApproximation EndEffectorLinearConstraint::getLinearApproximation(scalar_t time, const vector_t& state,
                                                                                       const vector_t& input,
                                                                                       const PreComputation& preComp) const {
-  // Initialize the linear approximation structure.
   VectorFunctionLinearApproximation linearApproximation =
       VectorFunctionLinearApproximation::Zero(getNumConstraints(time), state.size(), input.size());
 
-  // The constant term is b.
   linearApproximation.f = config_.b;
 
-  // Add the position term contribution, if it exists.
   if (config_.Ax.size() > 0) {
-    // Get the linear approximation of the end-effector position.
     const auto positionApprox = endEffectorKinematicsPtr_->getPositionLinearApproximation(state).front();
-    // Add to the constraint value: A_x * x_ee
     linearApproximation.f.noalias() += config_.Ax * positionApprox.f;
-    // Add to the state derivative using the chain rule: d(g)/dx = A_x * d(x_ee)/dx
     linearApproximation.dfdx.noalias() += config_.Ax * positionApprox.dfdx;
   }
 
-  // Add the velocity term contribution, if it exists.
   if (config_.Av.size() > 0) {
-    // Get the linear approximation of the end-effector velocity.
     const auto velocityApprox = endEffectorKinematicsPtr_->getVelocityLinearApproximation(state, input).front();
-    // Add to the constraint value: A_v * v_ee
     linearApproximation.f.noalias() += config_.Av * velocityApprox.f;
-    // Add to the state derivative using the chain rule: d(g)/dx = A_v * d(v_ee)/dx
     linearApproximation.dfdx.noalias() += config_.Av * velocityApprox.dfdx;
-    // Add to the input derivative using the chain rule: d(g)/du = A_v * d(v_ee)/du
     linearApproximation.dfdu.noalias() += config_.Av * velocityApprox.dfdu;
   }
 

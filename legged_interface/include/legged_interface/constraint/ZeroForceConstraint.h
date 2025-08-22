@@ -34,50 +34,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "legged_interface/SwitchedModelReferenceManager.h"
 
-// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
 namespace ocs2 {
 namespace legged_robot {
 
-/**
- * @class ZeroForceConstraint
- * @brief This constraint enforces that the contact force of a specific foot is zero.
- * It is used for feet that are in a swing phase, ensuring they do not exert any forces.
- * The constraint is active only when the reference manager indicates that the foot is not in contact.
- */
 class ZeroForceConstraint final : public StateInputConstraint {
  public:
-  /**
-   * @brief Constructor for the ZeroForceConstraint.
-   * @param referenceManager : Switched model ReferenceManager to check for contact.
-   * @param contactPointIndex : The 3-DOF contact index this constraint applies to.
-   * @param info : The centroidal model information.
+  /*
+   * Constructor
+   * @param [in] referenceManager : Switched model ReferenceManager.
+   * @param [in] contactPointIndex : The 3 DoF contact index.
+   * @param [in] info : The centroidal model information.
    */
   ZeroForceConstraint(const SwitchedModelReferenceManager& referenceManager, size_t contactPointIndex, CentroidalModelInfo info);
 
   ~ZeroForceConstraint() override = default;
   ZeroForceConstraint* clone() const override { return new ZeroForceConstraint(*this); }
 
-  /**
-   * @brief Checks if the constraint is active at a given time (i.e., if the foot is in a swing phase).
-   * @param time : The time to check.
-   * @return True if the constraint is active, false otherwise.
-   */
   bool isActive(scalar_t time) const override;
-
-  /**
-   * @brief Returns the number of constraints (3 for the 3D contact force).
-   */
   size_t getNumConstraints(scalar_t time) const override { return 3; }
-
-  /**
-   * @brief Computes the value of the constraint, which is simply the 3D contact force.
-   * The solver will attempt to drive this value to zero.
-   */
   vector_t getValue(scalar_t time, const vector_t& state, const vector_t& input, const PreComputation& preComp) const override;
-
-  /**
-   * @brief Computes the linear approximation (Jacobian) of the constraint.
-   */
   VectorFunctionLinearApproximation getLinearApproximation(scalar_t time, const vector_t& state, const vector_t& input,
                                                            const PreComputation& preComp) const override;
 

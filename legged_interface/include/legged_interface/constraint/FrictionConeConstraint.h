@@ -31,43 +31,39 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <ocs2_centroidal_model/CentroidalModelInfo.h>
 #include <ocs2_core/constraint/StateInputConstraint.h>
+
 #include <ocs2_legged_robot/common/Types.h>
+
 #include "legged_interface/SwitchedModelReferenceManager.h"
 
-// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
 namespace ocs2 {
 namespace legged_robot {
 
 /**
- * @class FrictionConeConstraint
- * @brief Implements the friction cone constraint as a soft or hard inequality constraint.
+ * Implements the constraint h(t,x,u) >= 0
  *
- * The constraint is formulated as: h(t,x,u) >= 0
- * The specific formula is:
- *   frictionCoefficient * (F_n + gripperForce) - sqrt(F_t1^2 + F_t2^2 + regularization) >= 0
- * where F_n is the normal force and F_t1, F_t2 are the tangential forces in the terrain frame.
+ * frictionCoefficient * (Fz + gripperForce) - sqrt(Fx * Fx + Fy * Fy + regularization) >= 0
  *
- * - The gripperForce allows the model to account for adhesion, enabling tangential forces even with zero normal force,
- *   or even "pulling" forces.
- * - The regularization term prevents singularities in the gradient and Hessian when tangential forces are zero.
- *   It also creates a small safety margin.
+ * The gripper force shifts the origin of the friction cone down in z-direction by the amount of gripping force available. This makes it
+ * possible to produce tangential forces without applying a regular normal force on that foot, or to "pull" on the foot with magnitude up to
+ * the gripping force.
+ *
+ * The regularization prevents the constraint gradient / hessian to go to infinity when Fx = Fz = 0. It also creates a parabolic safety
+ * margin to the friction cone. For example: when Fx = Fy = 0 the constraint zero-crossing will be at Fz = 1/frictionCoefficient *
+ * sqrt(regularization) instead of Fz = 0
+ *
  */
 class FrictionConeConstraint final : public StateInputConstraint {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   /**
-   * @struct Config
-   * @brief Configuration parameters for the friction cone constraint.
+   * frictionCoefficient: The coefficient of friction.
+   * regularization: A positive number to regulize the friction constraint. refer to the FrictionConeConstraint documentation.
+   * gripperForce: Gripper force in normal direction.
+   * hessianDiagonalShift: The Hessian shift to assure a strictly-convex quadratic constraint approximation.
    */
   struct Config {
-    /**
-     * @brief Constructor for the Config struct.
-     * @param frictionCoefficientParam : The coefficient of friction (mu).
-     * @param regularizationParam : A small positive value to regularize the constraint.
-     * @param gripperForceParam : The adhesive force available at the contact point.
-     * @param hessianDiagonalShiftParam : A shift to ensure the Hessian is positive definite.
-     */
     explicit Config(scalar_t frictionCoefficientParam = 0.7, scalar_t regularizationParam = 25.0, scalar_t gripperForceParam = 0.0,
                     scalar_t hessianDiagonalShiftParam = 1e-6)
         : frictionCoefficient(frictionCoefficientParam),
@@ -79,18 +75,18 @@ class FrictionConeConstraint final : public StateInputConstraint {
       assert(hessianDiagonalShift >= 0.0);
     }
 
-    scalar_t frictionCoefficient;   //!< The coefficient of friction.
-    scalar_t regularization;        //!< A positive number to regularize the friction constraint.
-    scalar_t gripperForce;          //!< Gripper force in the normal direction.
-    scalar_t hessianDiagonalShift;  //!< A Hessian shift to ensure a strictly-convex quadratic constraint approximation.
+    scalar_t frictionCoefficient;
+    scalar_t regularization;
+    scalar_t gripperForce;
+    scalar_t hessianDiagonalShift;
   };
 
   /**
-   * @brief Constructor for the FrictionConeConstraint.
-   * @param referenceManager : Switched model ReferenceManager to check for contact.
-   * @param config : Friction model settings.
-   * @param contactPointIndex : The 3-DOF contact index this constraint applies to.
-   * @param info : The centroidal model information.
+   * Constructor
+   * @param [in] referenceManager : Switched model ReferenceManager.
+   * @param [in] config : Friction model settings.
+   * @param [in] contactPointIndex : The 3 DoF contact index.
+   * @param [in] info : The centroidal model information.
    */
   FrictionConeConstraint(const SwitchedModelReferenceManager& referenceManager, Config config, size_t contactPointIndex,
                          CentroidalModelInfo info);
@@ -98,11 +94,6 @@ class FrictionConeConstraint final : public StateInputConstraint {
   ~FrictionConeConstraint() override = default;
   FrictionConeConstraint* clone() const override { return new FrictionConeConstraint(*this); }
 
-  /**
-   * @brief Checks if the constraint is active at a given time (i.e., if the foot is in contact).
-   * @param time : The time to check.
-   * @return True if the constraint is active, false otherwise.
-   */
   bool isActive(scalar_t time) const override;
   size_t getNumConstraints(scalar_t time) const override { return 1; };
   vector_t getValue(scalar_t time, const vector_t& state, const vector_t& input, const PreComputation& preComp) const override;
@@ -111,28 +102,21 @@ class FrictionConeConstraint final : public StateInputConstraint {
   VectorFunctionQuadraticApproximation getQuadraticApproximation(scalar_t time, const vector_t& state, const vector_t& input,
                                                                  const PreComputation& preComp) const override;
 
-  /**
-   * @brief Sets the estimated terrain normal, expressed in the world frame.
-   * This is used to rotate forces into the terrain frame.
-   * @param surfaceNormalInWorld : The surface normal vector.
-   */
+  /** Sets the estimated terrain normal expressed in the world frame. */
   void setSurfaceNormalInWorld(const vector3_t& surfaceNormalInWorld);
 
  private:
-  // Helper struct for storing derivatives of local forces w.r.t. world frame forces.
   struct LocalForceDerivatives {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     matrix3_t dF_du;  // derivative local force w.r.t. forces in world frame
   };
 
-  // Helper struct for storing derivatives of the cone constraint w.r.t. local forces.
   struct ConeLocalDerivatives {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vector3_t dCone_dF;    // derivative w.r.t local force
     matrix3_t d2Cone_dF2;  // second derivative w.r.t local force
   };
 
-  // Helper struct for storing derivatives of the cone constraint w.r.t. the input vector.
   struct ConeDerivatives {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vector3_t dCone_du;
@@ -140,17 +124,12 @@ class FrictionConeConstraint final : public StateInputConstraint {
   };
 
   FrictionConeConstraint(const FrictionConeConstraint& other) = default;
-
-  // Computes the value of the friction cone constraint for a given set of local forces.
   vector_t coneConstraint(const vector3_t& localForces) const;
-
-  // Computes derivatives needed for the chain rule.
   LocalForceDerivatives computeLocalForceDerivatives(const vector3_t& forcesInBodyFrame) const;
   ConeLocalDerivatives computeConeLocalDerivatives(const vector3_t& localForces) const;
   ConeDerivatives computeConeConstraintDerivatives(const ConeLocalDerivatives& coneLocalDerivatives,
                                                    const LocalForceDerivatives& localForceDerivatives) const;
 
-  // Computes the full derivative matrices for the solver.
   matrix_t frictionConeInputDerivative(size_t inputDim, const ConeDerivatives& coneDerivatives) const;
   matrix_t frictionConeSecondDerivativeInput(size_t inputDim, const ConeDerivatives& coneDerivatives) const;
   matrix_t frictionConeSecondDerivativeState(size_t stateDim, const ConeDerivatives& coneDerivatives) const;
@@ -161,7 +140,7 @@ class FrictionConeConstraint final : public StateInputConstraint {
   const size_t contactPointIndex_;
   const CentroidalModelInfo info_;
 
-  // Rotation from world frame to terrain frame.
+  // rotation world to terrain
   matrix3_t t_R_w = matrix3_t::Identity();
 };
 

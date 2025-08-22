@@ -6,7 +6,7 @@
 #include <ros/ros.h>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <nav_msgs/Odometry.hh>
+#include <nav_msgs/Odometry.h>
 #include <realtime_tools/realtime_publisher.h>
 
 #include <legged_common/hardware_interface/ContactSensorInterface.h>
@@ -24,82 +24,79 @@ using namespace legged_robot;
 
 /**
  * @class StateEstimateBase
- * @brief Abstract base class for state estimators.
+ * @brief 状态估计器的抽象基类。
  *
- * This class defines the common interface for all state estimation algorithms used in the system.
- * It provides methods to update the estimator with raw sensor data (from joints, contacts, and IMU)
- * and a pure virtual `update` method that derived classes must implement to perform the actual state
- * estimation calculation (e.g., using a Kalman filter).
+ * 此类定义了系统中所有状态估计算法的通用接口。
+ * 它提供了用原始传感器数据（来自关节、触点和IMU）更新估计器的方法，
+ * 以及一个纯虚的 `update` 方法，派生类必须实现该方法以执行实际的状态估计计算
+ * （例如，使用卡尔曼滤波器）。
  */
 class StateEstimateBase {
  public:
   /**
-   * @brief Constructor for StateEstimateBase.
-   * @param pinocchioInterface : A Pinocchio interface for the robot model.
-   * @param info : The centroidal model information.
-   * @param eeKinematics : The end-effector kinematics.
+   * @brief StateEstimateBase 的构造函数。
+   * @param pinocchioInterface 机器人的 Pinocchio 接口。
+   * @param info 质心模型信息。
+   * @param eeKinematics 末端执行器运动学。
    */
   StateEstimateBase(PinocchioInterface pinocchioInterface, CentroidalModelInfo info, const PinocchioEndEffectorKinematics& eeKinematics);
-
-  /** @brief Updates the estimator with new joint position and velocity data. */
+  /** @brief 用新的关节位置和速度数据更新估计器。 */
   virtual void updateJointStates(const vector_t& jointPos, const vector_t& jointVel);
-
-  /** @brief Updates the estimator with new contact flag data. */
+  /** @brief 用新的接触标志数据更新估计器。 */
   virtual void updateContact(contact_flag_t contactFlag) { contactFlag_ = contactFlag; }
-
-  /** @brief Updates the estimator with new IMU data. */
-  virtual void updateImu(const Eigen::Quaternion<scalar_t>& quat, const vector3_t& angularVelLocal, const vector3_t& linearAccelLocal,
+  /** @brief 用新的IMU数据更新估计器。 */
+  virtual void updateImu(const Eigen::Quaternion<scalar_t>& quat, const vector3_t& angularVelLocal, const vector_t& linearAccelLocal,
                          const matrix3_t& orientationCovariance, const matrix3_t& angularVelCovariance,
                          const matrix3_t& linearAccelCovariance);
 
   /**
-   * @brief Performs the state estimation update calculation. This is a pure virtual function.
-   * @param time : The current time.
-   * @param period : The time elapsed since the last update.
-   * @return The estimated full rigid body state vector.
+   * @brief 执行状态估计更新计算。这是一个纯虚函数。
+   * @param time 当前时间。
+   * @param period 自上次更新以来经过的时间。
+   * @return 估计的完整刚体状态向量。
    */
   virtual vector_t update(const ros::Time& time, const ros::Duration& period) = 0;
 
-  /** @brief Gets the current contact mode based on the contact flags. */
+  /** @brief 根据接触标志获取当前接触模式。 */
   size_t getMode() { return stanceLeg2ModeNumber(contactFlag_); }
 
  protected:
-  /** @brief Updates the angular part of the state from an estimate. */
+  /** @brief 从估计值更新状态的角度部分。 */
   void updateAngular(const vector3_t& zyx, const vector_t& angularVel);
-  /** @brief Updates the linear part of the state from an estimate. */
+  /** @brief 从估计值更新状态的线性部分。 */
   void updateLinear(const vector_t& pos, const vector_t& linearVel);
-  /** @brief Publishes the estimated odometry and pose as ROS messages. */
+  /** @brief 将估计的里程计和位姿作为ROS消息发布。 */
   void publishMsgs(const nav_msgs::Odometry& odom);
 
-  // Robot model interfaces
+  // 机器人模型接口
   PinocchioInterface pinocchioInterface_;
   CentroidalModelInfo info_;
   std::unique_ptr<PinocchioEndEffectorKinematics> eeKinematics_;
 
-  // Internal state and sensor data storage
+  // 内部状态和传感器数据存储
   vector3_t zyxOffset_ = vector3_t::Zero();
-  vector_t rbdState_; // The full rigid body state being estimated
+  vector_t rbdState_; // 正在估计的完整刚体状态
   contact_flag_t contactFlag_{};
   Eigen::Quaternion<scalar_t> quat_;
   vector3_t angularVelLocal_, linearAccelLocal_;
   matrix3_t orientationCovariance_, angularVelCovariance_, linearAccelCovariance_;
 
-  // ROS publishers
+  // ROS 发布器
   std::shared_ptr<realtime_tools::RealtimePublisher<nav_msgs::Odometry>> odomPub_;
   std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::PoseWithCovarianceStamped>> posePub_;
   ros::Time lastPub_;
 };
 
-/** @brief A simple square function template. */
+/** @brief 一个简单的平方函数模板。 */
 template <typename T>
 T square(T a) {
   return a * a;
 }
 
 /**
- * @brief Converts a quaternion to ZYX Euler angles.
- * @param q The input quaternion.
- * @return A 3x1 vector containing the ZYX Euler angles.
+ * @brief 将四元数转换为 ZYX 欧拉角。
+ * @param q 输入的四元数。
+ * @return 包含 ZYX 欧拉角的 3x1 向量。
  */
 template <typename SCALAR_T>
 Eigen::Matrix<SCALAR_T, 3, 1> quatToZyx(const Eigen::Quaternion<SCALAR_T>& q) {

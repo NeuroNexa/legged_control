@@ -15,16 +15,14 @@ using namespace ocs2;
 
 /**
  * @class Task
- * @brief A data structure for defining a task in the whole-body control problem.
+ * @brief 用于定义全身控制问题中任务的数据结构。
  *
- * A task represents a set of linear constraints, which can be either equality constraints,
- * inequality constraints, or a combination of both.
+ * 一个任务代表一组线性约束，可以是等式约束、不等式约束或两者的组合。
  *
- * - Equality constraints are of the form: A * x = b
- * - Inequality constraints are of the form: D * x <= f
+ * - 等式约束形式为：A * x = b
+ * - 不等式约束形式为：D * x <= f
  *
- * This class provides a convenient way to store these matrices and vectors and to
- * combine multiple tasks into a single larger task.
+ * 此类提供了一种方便的方式来存储这些矩阵和向量，并将多个任务组合成一个更大的任务。
  */
 class Task {
  public:
@@ -33,26 +31,26 @@ class Task {
   Task() = default;
 
   /**
-   * @brief Constructor for a task.
-   * @param a The equality constraint matrix A.
-   * @param b The equality constraint vector b.
-   * @param d The inequality constraint matrix D.
-   * @param f The inequality constraint vector f.
+   * @brief 任务的构造函数。
+   * @param a 等式约束矩阵 A。
+   * @param b 等式约束向量 b。
+   * @param d 不等式约束矩阵 D。
+   * @param f 不等式约束向量 f。
    */
   Task(matrix_t a, vector_t b, matrix_t d, vector_t f) : a_(std::move(a)), d_(std::move(d)), b_(std::move(b)), f_(std::move(f)) {}
 
   /**
-   * @brief Constructor for an empty task with a specified number of decision variables.
-   * @param numDecisionVars The number of columns for the constraint matrices.
+   * @brief 具有指定决策变量数量的空任务的构造函数。
+   * @param numDecisionVars 约束矩阵的列数。
    */
   explicit Task(size_t numDecisionVars)
       : Task(matrix_t::Zero(0, numDecisionVars), vector_t::Zero(0), matrix_t::Zero(0, numDecisionVars), vector_t::Zero(0)) {}
 
   /**
-   * @brief Overloads the + operator to concatenate two tasks.
-   * This allows for easily combining multiple constraints into a single task.
-   * @param rhs The task to be added.
-   * @return A new task containing the combined constraints.
+   * @brief 重载 + 运算符以连接两个任务。
+   * 这允许轻松地将多个约束组合成单个任务。
+   * @param rhs 要添加的任务。
+   * @return 包含组合约束的新任务。
    */
   Task operator+(const Task& rhs) const {
     return {concatenateMatrices(a_, rhs.a_), concatenateVectors(b_, rhs.b_), concatenateMatrices(d_, rhs.d_),
@@ -60,23 +58,23 @@ class Task {
   }
 
   /**
-   * @brief Overloads the * operator to scale a task by a scalar.
-   * @param rhs The scalar to multiply by.
-   * @return A new task with scaled constraints.
+   * @brief 重载 * 运算符以按标量缩放任务。
+   * @param rhs 要乘以的标量。
+   * @return 具有缩放约束的新任务。
    */
   Task operator*(scalar_t rhs) const {
     return {a_.cols() > 0 ? rhs * a_ : a_, b_.cols() > 0 ? rhs * b_ : b_, d_.cols() > 0 ? rhs * d_ : d_,
             f_.cols() > 0 ? rhs * f_ : f_};
   }
 
-  matrix_t a_, d_;  //!< A and D matrices for equality (Ax=b) and inequality (Dx<=f) constraints.
-  vector_t b_, f_;  //!< b and f vectors for equality and inequality constraints.
+  matrix_t a_, d_;  //!< 等式(Ax=b)和不等式(Dx<=f)约束的 A 和 D 矩阵。
+  vector_t b_, f_;  //!< 等式和不等式约束的 b 和 f 向量。
 
   /**
-   * @brief A static helper function to vertically concatenate two matrices.
-   * @param m1 The first matrix.
-   * @param m2 The second matrix.
-   * @return The concatenated matrix.
+   * @brief 垂直连接两个矩阵的静态辅助函数。
+   * @param m1 第一个矩阵。
+   * @param m2 第二个矩阵。
+   * @return 连接后的矩阵。
    */
   static matrix_t concatenateMatrices(const matrix_t& m1, const matrix_t& m2) {
     if (m1.rows() == 0) {
@@ -92,10 +90,10 @@ class Task {
   }
 
   /**
-   * @brief A static helper function to vertically concatenate two vectors.
-   * @param v1 The first vector.
-   * @param v2 The second vector.
-   * @return The concatenated vector.
+   * @brief 垂直连接两个向量的静态辅助函数。
+   * @param v1 第一个向量。
+   * @param v2 第二个向量。
+   * @return 连接后的向量。
    */
   static vector_t concatenateVectors(const vector_t& v1, const vector_t& v2) {
     if (v1.rows() == 0) {

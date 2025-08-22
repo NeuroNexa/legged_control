@@ -41,14 +41,12 @@ NormalVelocityConstraintCppAd::NormalVelocityConstraintCppAd(const SwitchedModel
                                                              size_t contactPointIndex)
     : StateInputConstraint(ConstraintOrder::Linear),
       referenceManagerPtr_(&referenceManager),
-      // Initialize the underlying linear constraint. It is configured to constrain 1 dimension (the normal velocity).
       eeLinearConstraintPtr_(new EndEffectorLinearConstraint(endEffectorKinematics, 1)),
       contactPointIndex_(contactPointIndex) {}
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
-// Standard copy constructor
 NormalVelocityConstraintCppAd::NormalVelocityConstraintCppAd(const NormalVelocityConstraintCppAd& rhs)
     : StateInputConstraint(rhs),
       referenceManagerPtr_(rhs.referenceManagerPtr_),
@@ -59,7 +57,6 @@ NormalVelocityConstraintCppAd::NormalVelocityConstraintCppAd(const NormalVelocit
 /******************************************************************************************************/
 /******************************************************************************************************/
 bool NormalVelocityConstraintCppAd::isActive(scalar_t time) const {
-  // The constraint is active if the foot is NOT in contact (i.e., it's a swing foot).
   return !referenceManagerPtr_->getContactFlags(time)[contactPointIndex_];
 }
 
@@ -68,13 +65,9 @@ bool NormalVelocityConstraintCppAd::isActive(scalar_t time) const {
 /******************************************************************************************************/
 vector_t NormalVelocityConstraintCppAd::getValue(scalar_t time, const vector_t& state, const vector_t& input,
                                                  const PreComputation& preComp) const {
-  // Cast the pre-computation to the legged robot specific type.
   const auto& preCompLegged = cast<LeggedRobotPreComputation>(preComp);
-  // Dynamically configure the underlying linear constraint with the parameters for the current time step.
-  // These parameters (e.g., the desired normal velocity) are computed in the LeggedRobotPreComputation module.
   eeLinearConstraintPtr_->configure(preCompLegged.getEeNormalVelocityConstraintConfigs()[contactPointIndex_]);
 
-  // The constraint value is computed by the now-configured underlying EndEffectorLinearConstraint object.
   return eeLinearConstraintPtr_->getValue(time, state, input, preComp);
 }
 
@@ -84,12 +77,9 @@ vector_t NormalVelocityConstraintCppAd::getValue(scalar_t time, const vector_t& 
 VectorFunctionLinearApproximation NormalVelocityConstraintCppAd::getLinearApproximation(scalar_t time, const vector_t& state,
                                                                                         const vector_t& input,
                                                                                         const PreComputation& preComp) const {
-  // Cast the pre-computation to the legged robot specific type.
   const auto& preCompLegged = cast<LeggedRobotPreComputation>(preComp);
-  // Dynamically configure the underlying linear constraint with the parameters for the current time step.
   eeLinearConstraintPtr_->configure(preCompLegged.getEeNormalVelocityConstraintConfigs()[contactPointIndex_]);
 
-  // The linear approximation is computed by the now-configured underlying EndEffectorLinearConstraint object.
   return eeLinearConstraintPtr_->getLinearApproximation(time, state, input, preComp);
 }
 

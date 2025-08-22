@@ -16,15 +16,15 @@ using namespace legged_robot;
 
 /**
  * @class WbcBase
- * @brief Base class for the Whole Body Controller (WBC).
+ * @brief 全身控制器（WBC）的基类。
  *
- * The WBC calculates the optimal joint torques and contact forces to achieve a desired motion,
- * while respecting various physical and task-space constraints. It formulates the control problem
- * as a set of prioritized tasks (constraints and objectives) that are then solved by a derived class
- * (e.g., HierarchicalWbc or WeightedWbc).
+ * WBC 计算最优的关节力矩和接触力，以实现期望的运动，
+ * 同时遵守各种物理和任务空间约束。它将控制问题
+ * 表述为一组有优先级的任务（约束和目标），然后由派生类
+ * （例如 HierarchicalWbc 或 WeightedWbc）求解。
  *
- * The decision variables for the optimization problem are:
- *   x = [generalized_accelerations^T, contact_forces^T, joint_torques^T]^T
+ * 优化问题的决策变量是：
+ *   x = [广义加速度^T, 接触力^T, 关节力矩^T]^T
  */
 class WbcBase {
   using Vector6 = Eigen::Matrix<scalar_t, 6, 1>;
@@ -32,56 +32,56 @@ class WbcBase {
 
  public:
   /**
-   * @brief Constructor for WbcBase.
-   * @param pinocchioInterface : A Pinocchio interface for the robot model.
-   * @param info : The centroidal model information.
-   * @param eeKinematics : The end-effector kinematics.
+   * @brief WbcBase 的构造函数。
+   * @param pinocchioInterface 机器人的 Pinocchio 接口。
+   * @param info 质心模型信息。
+   * @param eeKinematics 末端执行器运动学。
    */
   WbcBase(const PinocchioInterface& pinocchioInterface, CentroidalModelInfo info, const PinocchioEndEffectorKinematics& eeKinematics);
 
   /**
-   * @brief Loads task-specific settings from a configuration file.
-   * @param taskFile : Path to the task configuration file.
-   * @param verbose : Whether to print loaded settings.
+   * @brief 从配置文件加载任务特定设置。
+   * @param taskFile 任务配置文件的路径。
+   * @param verbose 是否打印加载的设置。
    */
   virtual void loadTasksSetting(const std::string& taskFile, bool verbose);
 
   /**
-   * @brief The main update loop for the WBC.
-   * @param stateDesired : The desired state from the MPC.
-   * @param inputDesired : The desired input from the MPC.
-   * @param rbdStateMeasured : The measured robot state (generalized coordinates and velocities).
-   * @param mode : The current contact mode.
-   * @param period : The control period.
-   * @return The computed optimal decision variables (accelerations, forces, torques).
+   * @brief WBC 的主更新循环。
+   * @param stateDesired 来自 MPC 的期望状态。
+   * @param inputDesired 来自 MPC 的期望输入。
+   * @param rbdStateMeasured 测量的机器人状态（广义坐标和速度）。
+   * @param mode 当前的接触模式。
+   * @param period 控制周期。
+   * @return 计算出的最优决策变量（加速度、力、力矩）。
    */
   virtual vector_t update(const vector_t& stateDesired, const vector_t& inputDesired, const vector_t& rbdStateMeasured, size_t mode,
                           scalar_t period);
 
  protected:
   /**
-   * @brief Updates the internal model with the measured robot state.
-   * @param rbdStateMeasured : The measured robot state.
+   * @brief 用测量的机器人状态更新内部模型。
+   * @param rbdStateMeasured 测量的机器人状态。
    */
   void updateMeasured(const vector_t& rbdStateMeasured);
 
   /**
-   * @brief Updates the internal model with the desired state and input.
-   * @param stateDesired : The desired state.
-   * @param inputDesired : The desired input.
+   * @brief 用期望的状态和输入更新内部模型。
+   * @param stateDesired 期望状态。
+   * @param inputDesired 期望输入。
    */
   void updateDesired(const vector_t& stateDesired, const vector_t& inputDesired);
 
   size_t getNumDecisionVars() const { return numDecisionVars_; }
 
-  // Task formulation methods
-  Task formulateFloatingBaseEomTask();        //!< Formulates the floating base equations of motion task.
-  Task formulateTorqueLimitsTask();           //!< Formulates the joint torque limits task.
-  Task formulateNoContactMotionTask();        //!< Formulates the task for unconstrained motion of swing feet.
-  Task formulateFrictionConeTask();           //!< Formulates the friction cone constraints for stance feet.
-  Task formulateBaseAccelTask(const vector_t& stateDesired, const vector_t& inputDesired, scalar_t period);  //!< Formulates the base acceleration tracking task.
-  Task formulateSwingLegTask();               //!< Formulates the swing leg motion tracking task.
-  Task formulateContactForceTask(const vector_t& inputDesired) const;  //!< Formulates the contact force tracking task.
+  // 任务构建方法
+  Task formulateFloatingBaseEomTask();        //!< 构建浮动基座运动方程任务。
+  Task formulateTorqueLimitsTask();           //!< 构建关节力矩限制任务。
+  Task formulateNoContactMotionTask();        //!< 构建摆动脚无约束运动的任务。
+  Task formulateFrictionConeTask();           //!< 构建支撑脚的摩擦锥约束任务。
+  Task formulateBaseAccelTask(const vector_t& stateDesired, const vector_t& inputDesired, scalar_t period);  //!< 构建基座加速度跟踪任务。
+  Task formulateSwingLegTask();               //!< 构建摆动腿运动跟踪任务。
+  Task formulateContactForceTask(const vector_t& inputDesired) const;  //!< 构建接触力跟踪任务。
 
   size_t numDecisionVars_;
   PinocchioInterface pinocchioInterfaceMeasured_, pinocchioInterfaceDesired_;
@@ -90,13 +90,13 @@ class WbcBase {
   std::unique_ptr<PinocchioEndEffectorKinematics> eeKinematics_;
   CentroidalModelPinocchioMapping mapping_;
 
-  // Internal state variables updated at each cycle
+  // 每个周期更新的内部状态变量
   vector_t qMeasured_, vMeasured_, inputLast_;
-  matrix_t j_, dj_;  // Contact Jacobian and its time derivative
+  matrix_t j_, dj_;  // 接触雅可比矩阵及其时间导数
   contact_flag_t contactFlag_{};
   size_t numContacts_{};
 
-  // Task Parameters loaded from config file
+  // 从配置文件加载的任务参数
   vector_t torqueLimits_;
   scalar_t frictionCoeff_{}, swingKp_{}, swingKd_{};
 };

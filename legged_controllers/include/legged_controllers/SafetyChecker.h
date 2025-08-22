@@ -12,45 +12,45 @@ using namespace centroidal_model;
 
 /**
  * @class SafetyChecker
- * @brief A class to check if the robot's state is within safe operating limits.
+ * @brief 一个用于检查机器人状态是否在安全操作范围内的类。
  *
- * This class is responsible for performing safety checks on the robot's current and planned states.
- * If a safety check fails, it can trigger a controller shutdown to prevent damage to the robot.
- * Currently, it only implements a basic check for the robot's orientation (pitch angle).
- * This could be extended to include other checks, such as joint position/velocity limits,
- * torque limits, or collision detection.
+ * 此类负责对机器人的当前和计划状态执行安全检查。
+ * 如果安全检查失败，它可以触发控制器关闭，以防止机器人损坏。
+ * 目前，它只实现了一个对机器人方向（俯仰角）的基本检查。
+ * 未来可以扩展以包括其他检查，例如关节位置/速度限制、
+ * 力矩限制或碰撞检测。
  */
 class SafetyChecker {
  public:
   /**
-   * @brief Constructor for the SafetyChecker.
-   * @param info : The centroidal model information.
+   * @brief SafetyChecker 的构造函数。
+   * @param info 质心模型信息。
    */
   explicit SafetyChecker(const CentroidalModelInfo& info) : info_(info) {}
 
   /**
-   * @brief The main safety check function.
-   * @param observation : The current system observation (state, input, etc.).
-   * @param optimized_state : The planned optimal state from the MPC.
-   * @param optimized_input : The planned optimal input from the MPC.
-   * @return True if all safety checks pass, false otherwise.
+   * @brief 主安全检查函数。
+   * @param observation 当前的系统观测值（状态、输入等）。
+   * @param optimized_state 来自 MPC 的计划最优状态。
+   * @param optimized_input 来自 MPC 的计划最优输入。
+   * @return 如果所有安全检查都通过，则为 true，否则为 false。
    */
   bool check(const SystemObservation& observation, const vector_t& /*optimized_state*/, const vector_t& /*optimized_input*/) {
-    // Currently, only the orientation check is performed on the current observation.
+    // 目前，只对当前观测值执行方向检查。
     return checkOrientation(observation);
   }
 
  protected:
   /**
-   * @brief Checks if the robot's orientation is within safe limits.
-   * @param observation : The current system observation.
-   * @return True if the orientation is safe, false otherwise.
+   * @brief 检查机器人的方向是否在安全限制内。
+   * @param observation 当前的系统观测值。
+   * @return 如果方向安全，则为 true，否则为 false。
    */
   bool checkOrientation(const SystemObservation& observation) {
     vector_t pose = getBasePose(observation.state, info_);
-    // Check if the pitch angle (approximated by the 6th element of the base pose, likely Euler ZYX) is within [-pi/2, pi/2].
+    // 检查俯仰角（由基座姿态的第6个元素近似，可能是ZYX欧拉角）是否在[-pi/2, pi/2]范围内。
     if (pose(5) > M_PI_2 || pose(5) < -M_PI_2) {
-      std::cerr << "[SafetyChecker] Orientation safety check failed! Pitch angle is too high." << std::endl;
+      std::cerr << "[SafetyChecker] 方向安全检查失败！俯仰角过大。" << std::endl;
       return false;
     }
     return true;

@@ -9,32 +9,31 @@ namespace legged {
 
 /**
  * @class HierarchicalWbc
- * @brief An implementation of the WBC that solves the control problem using a hierarchy of tasks.
+ * @brief 一种使用任务层次结构解决WBC问题的实现。
  *
- * This class inherits from WbcBase and implements the `update` method. Inside the `update` method,
- * it formulates the control tasks and solves them in a prioritized manner using a cascade of
- * Quadratic Programs (QPs). The solution to a higher-priority QP becomes a constraint for the
- * subsequent lower-priority QPs.
+ * 此类继承自 WbcBase 并实现了 `update` 方法。在 `update` 方法内部，
+ * 它构建控制任务，并使用级联的二次规划（QP）按优先级顺序解决这些任务。
+ * 较高优先级QP的解将成为后续较低优先级QP的约束。
  *
- * The actual implementation of the hierarchical optimization is handled by the HoQp class.
+ * 层次化优化的实际实现由 HoQp 类处理。
  */
 class HierarchicalWbc : public WbcBase {
  public:
-  // Inherit the constructor from the base class.
+  // 继承基类的构造函数。
   using WbcBase::WbcBase;
 
   /**
-   * @brief Solves the hierarchical whole-body control problem.
+   * @brief 解决分层的全身控制问题。
    *
-   * This method overrides the base class's update method. It formulates the tasks and then
-   * solves them sequentially to find the optimal decision variables.
+   * 此方法覆盖基类的 update 方法。它构建任务，然后
+   * 按顺序解决它们，以找到最优的决策变量。
    *
-   * @param stateDesired : The desired state from the MPC.
-   * @param inputDesired : The desired input from the MPC.
-   * @param rbdStateMeasured : The measured robot state.
-   * @param mode : The current contact mode.
-   * @param period : The control period.
-   * @return The computed optimal decision variables (accelerations, forces, torques).
+   * @param stateDesired 来自 MPC 的期望状态。
+   * @param inputDesired 来自 MPC 的期望输入。
+   * @param rbdStateMeasured 测量的机器人状态。
+   * @param mode 当前的接触模式。
+   * @param period 控制周期。
+   * @return 计算出的最优决策变量（加速度、力、力矩）。
    */
   vector_t update(const vector_t& stateDesired, const vector_t& inputDesired, const vector_t& rbdStateMeasured, size_t mode,
                   scalar_t period) override;

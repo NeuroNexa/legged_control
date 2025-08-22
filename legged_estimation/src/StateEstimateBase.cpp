@@ -16,16 +16,16 @@ StateEstimateBase::StateEstimateBase(PinocchioInterface pinocchioInterface, Cent
     : pinocchioInterface_(std::move(pinocchioInterface)),
       info_(std::move(info)),
       eeKinematics_(eeKinematics.clone()),
-      // Initialize the full rigid body state vector with zeros.
+      // 用零初始化完整的刚体状态向量。
       rbdState_(vector_t ::Zero(2 * info_.generalizedCoordinatesNum)) {
   ros::NodeHandle nh;
-  // Initialize ROS publishers for odometry and pose.
+  // 初始化用于里程计和位姿的 ROS 发布器。
   odomPub_.reset(new realtime_tools::RealtimePublisher<nav_msgs::Odometry>(nh, "odom", 10));
   posePub_.reset(new realtime_tools::RealtimePublisher<geometry_msgs::PoseWithCovarianceStamped>(nh, "pose", 10));
 }
 
 void StateEstimateBase::updateJointStates(const vector_t& jointPos, const vector_t& jointVel) {
-  // Update the joint-related parts of the state vector directly from sensor data.
+  // 直接从传感器数据更新状态向量中与关节相关的部分。
   rbdState_.segment(6, info_.actuatedDofNum) = jointPos;
   rbdState_.segment(6 + info_.generalizedCoordinatesNum, info_.actuatedDofNum) = jointVel;
 }
@@ -33,7 +33,7 @@ void StateEstimateBase::updateJointStates(const vector_t& jointPos, const vector
 void StateEstimateBase::updateImu(const Eigen::Quaternion<scalar_t>& quat, const vector3_t& angularVelLocal,
                                   const vector3_t& linearAccelLocal, const matrix3_t& orientationCovariance,
                                   const matrix3_t& angularVelCovariance, const matrix3_t& linearAccelCovariance) {
-  // Store the latest IMU data.
+  // 存储最新的 IMU 数据。
   quat_ = quat;
   angularVelLocal_ = angularVelLocal;
   linearAccelLocal_ = linearAccelLocal;
@@ -41,31 +41,31 @@ void StateEstimateBase::updateImu(const Eigen::Quaternion<scalar_t>& quat, const
   angularVelCovariance_ = angularVelCovariance;
   linearAccelCovariance_ = linearAccelCovariance;
 
-  // Process the IMU data to get orientation and global angular velocity.
-  // An offset can be applied to the orientation if needed.
+  // 处理 IMU 数据以获取方向和全局角速度。
+  // 如果需要，可以对方向应用偏移量。
   vector3_t zyx = quatToZyx(quat) - zyxOffset_;
   vector3_t angularVelGlobal = getGlobalAngularVelocityFromEulerAnglesZyxDerivatives<scalar_t>(
       zyx, getEulerAnglesZyxDerivativesFromLocalAngularVelocity<scalar_t>(quatToZyx(quat), angularVelLocal));
 
-  // Update the angular part of the state. The linear part will be updated by the derived estimator.
+  // 更新状态的角度部分。线性部分将由派生的估计器更新。
   updateAngular(zyx, angularVelGlobal);
 }
 
 void StateEstimateBase::updateAngular(const vector3_t& zyx, const vector_t& angularVel) {
-  // Update the angular parts of the state vector (orientation and angular velocity).
+  // 更新状态向量的角度部分（方向和角速度）。
   rbdState_.segment<3>(0) = zyx;
   rbdState_.segment<3>(info_.generalizedCoordinatesNum) = angularVel;
 }
 
 void StateEstimateBase::updateLinear(const vector_t& pos, const vector_t& linearVel) {
-  // Update the linear parts of the state vector (position and linear velocity).
-  // This is typically called by the derived class after it has estimated these values.
+  // 更新状态向量的线性部分（位置和线速度）。
+  // 这通常由派生类在估计了这些值之后调用。
   rbdState_.segment<3>(3) = pos;
   rbdState_.segment<3>(info_.generalizedCoordinatesNum + 3) = linearVel;
 }
 
 void StateEstimateBase::publishMsgs(const nav_msgs::Odometry& odom) {
-  // Publish the estimated odometry and pose at a limited rate.
+  // 以有限的频率发布估计的里程计和位姿。
   ros::Time time = odom.header.stamp;
   scalar_t publishRate = 200;
   if (lastPub_ + ros::Duration(1. / publishRate) < time) {

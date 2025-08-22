@@ -39,7 +39,7 @@ namespace legged_robot {
 /******************************************************************************************************/
 ZeroForceConstraint::ZeroForceConstraint(const SwitchedModelReferenceManager& referenceManager, size_t contactPointIndex,
                                          CentroidalModelInfo info)
-    : StateInputConstraint(ConstraintOrder::Linear),       // This is a linear constraint
+    : StateInputConstraint(ConstraintOrder::Linear),
       referenceManagerPtr_(&referenceManager),
       contactPointIndex_(contactPointIndex),
       info_(std::move(info)) {}
@@ -48,7 +48,6 @@ ZeroForceConstraint::ZeroForceConstraint(const SwitchedModelReferenceManager& re
 /******************************************************************************************************/
 /******************************************************************************************************/
 bool ZeroForceConstraint::isActive(scalar_t time) const {
-  // The constraint is active if the foot is NOT in contact (i.e., it's a swing foot).
   return !referenceManagerPtr_->getContactFlags(time)[contactPointIndex_];
 }
 
@@ -56,8 +55,6 @@ bool ZeroForceConstraint::isActive(scalar_t time) const {
 /******************************************************************************************************/
 /******************************************************************************************************/
 vector_t ZeroForceConstraint::getValue(scalar_t time, const vector_t& state, const vector_t& input, const PreComputation& preComp) const {
-  // The value of the constraint is the 3D contact force vector for the specified foot.
-  // The solver will try to make this value zero.
   return centroidal_model::getContactForces(input, contactPointIndex_, info_);
 }
 
@@ -66,17 +63,11 @@ vector_t ZeroForceConstraint::getValue(scalar_t time, const vector_t& state, con
 /******************************************************************************************************/
 VectorFunctionLinearApproximation ZeroForceConstraint::getLinearApproximation(scalar_t time, const vector_t& state, const vector_t& input,
                                                                               const PreComputation& preComp) const {
-  // Get the linear approximation of the constraint.
   VectorFunctionLinearApproximation approx;
   approx.f = getValue(time, state, input, preComp);
-
-  // The constraint value is a linear function of the input 'u' and does not depend on the state 'x'.
-  // df/dx = 0
   approx.dfdx = matrix_t::Zero(3, state.size());
-
-  // df/du is a matrix with ones on the diagonal for the columns corresponding to the contact force of this foot.
   approx.dfdu = matrix_t::Zero(3, input.size());
-  approx.dfdu.middleCols<3>(3 * contactPointIndex_).diagonal().setOnes();
+  approx.dfdu.middleCols<3>(3 * contactPointIndex_).diagonal() = vector_t::Ones(3);
   return approx;
 }
 

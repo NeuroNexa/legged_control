@@ -37,61 +37,61 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "legged_interface/constraint/SwingTrajectoryPlanner.h"
 
-// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
+// 该文件位于 legged_interface 中，但为了与 ocs2 框架保持一致，命名空间为 ocs2::legged_robot。
 namespace ocs2 {
 namespace legged_robot {
 
 /**
  * @class SwitchedModelReferenceManager
- * @brief Manages the ModeSchedule and the TargetTrajectories for a switched model (e.g., a legged robot).
- * This class is responsible for adapting the reference trajectories based on a predefined gait schedule
- * and generating swing leg motions. It serves as a high-level manager for the robot's intended movement.
+ * @brief 管理切换模型（例如足式机器人）的模式计划和目标轨迹。
+ * 此类负责根据预定义的步态计划调整参考轨迹并生成摆动腿的运动。
+ * 它充当机器人预期运动的高级管理器。
  */
 class SwitchedModelReferenceManager : public ReferenceManager {
  public:
   /**
-   * @brief Constructor for SwitchedModelReferenceManager.
-   * @param gaitSchedulePtr : A pointer to the gait schedule, which defines the contact patterns over time.
-   * @param swingTrajectoryPtr : A pointer to the swing trajectory planner, which generates trajectories for feet in the air.
+   * @brief SwitchedModelReferenceManager 的构造函数。
+   * @param gaitSchedulePtr : 指向步态计划的指针，该计划定义了随时间变化的接触模式。
+   * @param swingTrajectoryPtr : 指向摆动轨迹规划器的指针，该规划器生成空中脚的轨迹。
    */
   SwitchedModelReferenceManager(std::shared_ptr<GaitSchedule> gaitSchedulePtr, std::shared_ptr<SwingTrajectoryPlanner> swingTrajectoryPtr);
 
   ~SwitchedModelReferenceManager() override = default;
 
   /**
-   * @brief Sets the mode schedule for the robot. This is typically called to update the gait sequence.
-   * @param modeSchedule : The new mode schedule to be used.
+   * @brief 设置机器人的模式计划。通常调用此函数来更新步态序列。
+   * @param modeSchedule : 要使用的新模式计划。
    */
   void setModeSchedule(const ModeSchedule& modeSchedule) override;
 
   /**
-   * @brief Gets the contact flags for a specific time.
-   * @param time : The time at which to query the contact flags.
-   * @return A vector of booleans indicating if each foot is in contact.
+   * @brief 获取特定时间的接触标志。
+   * @param time : 查询接触标志的时间。
+   * @return 一个布尔向量，指示每只脚是否接触。
    */
   contact_flag_t getContactFlags(scalar_t time) const;
 
   /**
-   * @brief Gets a pointer to the managed gait schedule.
-   * @return A const shared pointer to the GaitSchedule.
+   * @brief 获取指向所管理的步态计划的指针。
+   * @return 指向 GaitSchedule 的 const 共享指针。
    */
   const std::shared_ptr<GaitSchedule>& getGaitSchedule() { return gaitSchedulePtr_; }
 
   /**
-   * @brief Gets a pointer to the managed swing trajectory planner.
-   * @return A const shared pointer to the SwingTrajectoryPlanner.
+   * @brief 获取指向所管理的摆动轨迹规划器的指针。
+   * @return 指向 SwingTrajectoryPlanner 的 const 共享指针。
    */
   const std::shared_ptr<SwingTrajectoryPlanner>& getSwingTrajectoryPlanner() { return swingTrajectoryPtr_; }
 
  protected:
   /**
-   * @brief Modifies the reference trajectories based on the current gait and system state.
-   * This is the core function where swing trajectories are generated and target trajectories are updated.
-   * @param initTime : The initial time of the optimization horizon.
-   * @param finalTime : The final time of the optimization horizon.
-   * @param initState : The initial state of the robot.
-   * @param [out] targetTrajectories : The target trajectories to be modified.
-   * @param [out] modeSchedule : The mode schedule to be used for the horizon.
+   * @brief 根据当前的步态和系统状态修改参考轨迹。
+   * 这是生成摆动轨迹和更新目标轨迹的核心函数。
+   * @param initTime : 优化时域的初始时间。
+   * @param finalTime : 优化时域的最终时间。
+   * @param initState : 机器人的初始状态。
+   * @param [out] targetTrajectories : 要修改的目标轨迹。
+   * @param [out] modeSchedule : 用于该时域的模式计划。
    */
   void modifyReferences(scalar_t initTime, scalar_t finalTime, const vector_t& initState, TargetTrajectories& targetTrajectories,
                         ModeSchedule& modeSchedule) override;

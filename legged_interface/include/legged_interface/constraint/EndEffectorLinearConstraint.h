@@ -30,45 +30,37 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include <memory>
+
 #include <ocs2_core/constraint/StateInputConstraint.h>
+
 #include <ocs2_robotic_tools/end_effector/EndEffectorKinematics.h>
 
-// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
 namespace ocs2 {
 namespace legged_robot {
 
 /**
- * @class EndEffectorLinearConstraint
- * @brief Defines a generic linear constraint on an end-effector's position (x_ee) and linear velocity (v_ee).
- * This class serves as a building block for more specific end-effector constraints.
- *
- * The constraint is of the form:
- *   g(x_ee, v_ee) = A_x * x_ee + A_v * v_ee + b
- *
- * Special cases:
- * - For a position-only constraint g(x_ee), set A_v to a zero matrix.
- * - For a velocity-only constraint g(v_ee), set A_x to a zero matrix.
- *
- * The derivatives of this constraint are computed using the end-effector kinematics, which are provided
- * as a CppAD code-generated module.
+ * Defines a linear constraint on an end-effector position (xee) and linear velocity (vee).
+ * g(xee, vee) = Ax * xee + Av * vee + b
+ * - For defining constraint of type g(xee), set Av to matrix_t(0, 0)
+ * - For defining constraint of type g(vee), set Ax to matrix_t(0, 0)
  */
 class EndEffectorLinearConstraint final : public StateInputConstraint {
  public:
   /**
-   * @struct Config
-   * @brief Coefficients of the linear constraint g(x_ee, v_ee) = A_x * x_ee + A_v * v_ee + b.
+   * Coefficients of the linear constraints of the form:
+   * g(xee, vee) = Ax * xee + Av * vee + b
    */
   struct Config {
-    vector_t b;     //!< The constant vector term.
-    matrix_t Ax;    //!< The matrix coefficient for the end-effector position.
-    matrix_t Av;    //!< The matrix coefficient for the end-effector velocity.
+    vector_t b;
+    matrix_t Ax;
+    matrix_t Av;
   };
 
   /**
-   * @brief Constructor for the EndEffectorLinearConstraint.
-   * @param endEffectorKinematics : The kinematic interface to the target end-effector.
-   * @param numConstraints : The number of constraint equations (the dimension of vector g).
-   * @param config : The constraint coefficients (A_x, A_v, b).
+   * Constructor
+   * @param [in] endEffectorKinematics: The kinematic interface to the target end-effector.
+   * @param [in] numConstraints: The number of constraints {1, 2, 3}
+   * @param [in] config: The constraint coefficients, g(xee, vee) = Ax * xee + Av * vee + b
    */
   EndEffectorLinearConstraint(const EndEffectorKinematics<scalar_t>& endEffectorKinematics, size_t numConstraints,
                               Config config = Config());
@@ -76,16 +68,12 @@ class EndEffectorLinearConstraint final : public StateInputConstraint {
   ~EndEffectorLinearConstraint() override = default;
   EndEffectorLinearConstraint* clone() const override { return new EndEffectorLinearConstraint(*this); }
 
-  /**
-   * @brief Sets new constraint coefficients. This allows for dynamically changing the constraint.
-   * @param config : The new configuration to apply.
-   */
+  /** Sets a new constraint coefficients. */
   void configure(Config&& config);
-
-  /** @brief Overload for lvalue config. */
+  /** Sets a new constraint coefficients. */
   void configure(const Config& config) { this->configure(Config(config)); }
 
-  /** @brief Gets the underlying end-effector kinematics interface. */
+  /** Gets the underlying end-effector kinematics interface. */
   EndEffectorKinematics<scalar_t>& getEndEffectorKinematics() { return *endEffectorKinematicsPtr_; }
 
   size_t getNumConstraints(scalar_t time) const override { return numConstraints_; }

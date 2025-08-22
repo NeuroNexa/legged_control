@@ -31,139 +31,139 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <ocs2_core/reference/ModeSchedule.h>
 
-#include <ocs2_legged_robot/common/Types.h>
+#include <ocs2_legged_robot/common/Types.hh>
 #include <ocs2_legged_robot/foot_planner/SplineCpg.h>
 
-// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
+// 该文件位于 legged_interface 中，但为了与 ocs2 框架保持一致，命名空间为 ocs2::legged_robot。
 namespace ocs2 {
 namespace legged_robot {
 
 /**
  * @class SwingTrajectoryPlanner
- * @brief Plans the swing motion for the feet of a legged robot.
- * It generates smooth trajectories for the height (z-component) of the feet during swing phases
- * using cubic splines (SplineCpg). This allows for specifying liftoff/touchdown velocities and swing height.
+ * @brief 为足式机器人的脚规划摆动轨迹。
+ * 它使用三次样条（SplineCpg）为摆动阶段的脚的高度（z分量）生成平滑轨迹。
+ * 这允许指定抬脚/触地速度和摆动高度。
  */
 class SwingTrajectoryPlanner {
  public:
   /**
    * @struct Config
-   * @brief Configuration parameters for the swing trajectory planner.
+   * @brief 摆动轨迹规划器的配置参数。
    */
   struct Config {
-    scalar_t liftOffVelocity = 0.0;      //!< The desired vertical velocity of the foot at liftoff.
-    scalar_t touchDownVelocity = 0.0;    //!< The desired vertical velocity of the foot at touchdown.
-    scalar_t swingHeight = 0.1;          //!< The desired maximum height of the foot during swing.
-    scalar_t swingTimeScale = 0.15;      //!< Swing phases shorter than this will have their height and velocity scaled down.
+    scalar_t liftOffVelocity = 0.0;      //!< 脚抬起时的期望垂直速度。
+    scalar_t touchDownVelocity = 0.0;    //!< 脚触地时的期望垂直速度。
+    scalar_t swingHeight = 0.1;          //!< 摆动期间脚的期望最大高度。
+    scalar_t swingTimeScale = 0.15;      //!< 比此时间短的摆动阶段的高度和速度将被按比例缩小。
   };
 
   /**
-   * @brief Constructor for the SwingTrajectoryPlanner.
-   * @param config : The configuration for the planner.
-   * @param numFeet : The number of feet of the robot.
+   * @brief SwingTrajectoryPlanner 的构造函数。
+   * @param config 规划器的配置。
+   * @param numFeet 机器人的脚数。
    */
   SwingTrajectoryPlanner(Config config, size_t numFeet);
 
   /**
-   * @brief Updates the swing trajectories based on a mode schedule and a constant terrain height.
-   * @param modeSchedule : The planned mode schedule defining stance and swing phases.
-   * @param terrainHeight : The assumed constant height of the terrain.
+   * @brief 根据模式计划和恒定的地形高度更新摆动轨迹。
+   * @param modeSchedule 规划的模式计划，定义了支撑和摆动阶段。
+   * @param terrainHeight 假定的恒定地形高度。
    */
   void update(const ModeSchedule& modeSchedule, scalar_t terrainHeight);
 
   /**
-   * @brief Updates the swing trajectories with varying liftoff and touchdown heights.
-   * @param modeSchedule : The planned mode schedule.
-   * @param liftOffHeightSequence : A sequence of desired liftoff heights for each foot.
-   * @param touchDownHeightSequence : A sequence of desired touchdown heights for each foot.
+   * @brief 使用变化的抬脚和触地高度更新摆动轨迹。
+   * @param modeSchedule 规划的模式计划。
+   * @param liftOffHeightSequence 每只脚的期望抬脚高度序列。
+   * @param touchDownHeightSequence 每只脚的期望触地高度序列。
    */
   void update(const ModeSchedule& modeSchedule, const feet_array_t<scalar_array_t>& liftOffHeightSequence,
               const feet_array_t<scalar_array_t>& touchDownHeightSequence);
 
   /**
-   * @brief Updates the swing trajectories with varying liftoff, touchdown, and maximum swing heights.
-   * @param modeSchedule : The planned mode schedule.
-   * @param liftOffHeightSequence : A sequence of desired liftoff heights for each foot.
-   * @param touchDownHeightSequence : A sequence of desired touchdown heights for each foot.
-   * @param maxHeightSequence : A sequence of desired maximum swing heights for each foot.
+   * @brief 使用变化的抬脚、触地和最大摆动高度更新摆动轨迹。
+   * @param modeSchedule 规划的模式计划。
+   * @param liftOffHeightSequence 每只脚的期望抬脚高度序列。
+   * @param touchDownHeightSequence 每只脚的期望触地高度序列。
+   * @param maxHeightSequence 每只脚的期望最大摆动高度序列。
    */
   void update(const ModeSchedule& modeSchedule, const feet_array_t<scalar_array_t>& liftOffHeightSequence,
               const feet_array_t<scalar_array_t>& touchDownHeightSequence, const feet_array_t<scalar_array_t>& maxHeightSequence);
 
   /**
-   * @brief Gets the desired vertical velocity of a foot at a specific time.
-   * @param leg : The index of the leg.
-   * @param time : The time to query.
-   * @return The desired vertical velocity.
+   * @brief 获取特定时间脚的期望垂直速度。
+   * @param leg 腿的索引。
+   * @param time 要查询的时间。
+   * @return 期望的垂直速度。
    */
   scalar_t getZvelocityConstraint(size_t leg, scalar_t time) const;
 
   /**
-   * @brief Gets the desired vertical position (height) of a foot at a specific time.
-   * @param leg : The index of the leg.
-   * @param time : The time to query.
-   * @return The desired vertical position.
+   * @brief 获取特定时间脚的期望垂直位置（高度）。
+   * @param leg 腿的索引。
+   * @param time 要查询的时间。
+   * @return 期望的垂直位置。
    */
   scalar_t getZpositionConstraint(size_t leg, scalar_t time) const;
 
  private:
   /**
-   * @brief Extracts the contact sequence for each leg from a sequence of mode IDs.
-   * @param phaseIDsStock : Vector of mode IDs.
-   * @return An array of boolean vectors, where each vector represents the contact sequence for a foot.
+   * @brief 从模式ID序列中提取每条腿的接触序列。
+   * @param phaseIDsStock 模式ID的向量。
+   * @return 一个布尔向量数组，其中每个向量代表一只脚的接触序列。
    */
   feet_array_t<std::vector<bool>> extractContactFlags(const std::vector<size_t>& phaseIDsStock) const;
 
   /**
-   * @brief Finds the indices of the take-off and touch-down events for a swing phase.
-   * @param index : The current index in the contact sequence.
-   * @param contactFlagStock : The contact sequence for a single leg.
-   * @return A pair containing the take-off time index and touch-down time index.
+   * @brief 查找摆动阶段的起飞和触地事件的索引。
+   * @param index 接触序列中的当前索引。
+   * @param contactFlagStock 单腿的接触序列。
+   * @return 包含起飞时间索引和触地时间索引的 pair。
    */
   static std::pair<int, int> findIndex(size_t index, const std::vector<bool>& contactFlagStock);
 
   /**
-   * @brief Determines the start and end event indices for all swing phases of a foot.
-   * @param contactFlagStock : The contact sequence for a single leg.
-   * @return A pair of vectors, containing the start and final event time indices for each swing phase.
+   * @brief 确定一只脚所有摆动阶段的开始和结束事件索引。
+   * @param contactFlagStock 单腿的接触序列。
+   * @return 一对向量，包含每个摆动阶段的开始和结束事件时间索引。
    */
   static std::pair<std::vector<int>, std::vector<int>> updateFootSchedule(const std::vector<bool>& contactFlagStock);
 
   /**
-   * @brief Checks if the calculated event time indices for a swing phase are valid.
-   * @param leg : The leg index.
-   * @param index : The phase index.
-   * @param startIndex : The calculated liftoff event time index.
-   * @param finalIndex : The calculated touchdown event time index.
-   * @param phaseIDsStock : The sequence of mode IDs.
+   * @brief 检查计算出的摆动阶段事件时间索引是否有效。
+   * @param leg 腿索引。
+   * @param index 阶段索引。
+   * @param startIndex 计算出的抬脚事件时间索引。
+   * @param finalIndex 计算出的触地事件时间索引。
+   * @param phaseIDsStock 模式ID序列。
    */
   static void checkThatIndicesAreValid(int leg, int index, int startIndex, int finalIndex, const std::vector<size_t>& phaseIDsStock);
 
   /**
-   * @brief Calculates a scaling factor for swing motion based on the duration of the swing phase.
-   * Short swing phases are scaled down to avoid aggressive motions.
-   * @param startTime : The start time of the swing phase.
-   * @param finalTime : The end time of the swing phase.
-   * @param swingTimeScale : The time scale parameter from the config.
-   * @return A scaling factor between 0 and 1.
+   * @brief 根据摆动阶段的持续时间计算摆动运动的缩放因子。
+   * 较短的摆动阶段会被缩小以避免剧烈运动。
+   * @param startTime 摆动阶段的开始时间。
+   * @param finalTime 摆动阶段的结束时间。
+   * @param swingTimeScale 配置中的时间尺度参数。
+   * @return 介于0和1之间的缩放因子。
    */
   static scalar_t swingTrajectoryScaling(scalar_t startTime, scalar_t finalTime, scalar_t swingTimeScale);
 
   const Config config_;
   const size_t numFeet_;
 
-  // Storage for the generated spline trajectories.
+  // 用于存储生成的样条轨迹。
   feet_array_t<std::vector<SplineCpg>> feetHeightTrajectories_;
-  // Storage for the event times associated with the trajectories.
+  // 用于存储与轨迹相关的事件时间。
   feet_array_t<std::vector<scalar_t>> feetHeightTrajectoriesEvents_;
 };
 
 /**
- * @brief Loads swing trajectory settings from a configuration file.
- * @param fileName : Path to the configuration file.
- * @param fieldName : The name of the field in the config file.
- * @param verbose : Whether to print loaded values.
- * @return An instance of SwingTrajectoryPlanner::Config.
+ * @brief 从配置文件加载摆动轨迹设置。
+ * @param fileName 配置文件的路径。
+ * @param fieldName 配置文件中的字段名称。
+ * @param verbose 是否打印加载的值。
+ * @return SwingTrajectoryPlanner::Config 的一个实例。
  */
 SwingTrajectoryPlanner::Config loadSwingTrajectorySettings(const std::string& fileName,
                                                            const std::string& fieldName = "swing_trajectory_config", bool verbose = true);

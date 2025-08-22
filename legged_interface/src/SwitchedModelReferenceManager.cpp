@@ -37,7 +37,7 @@ namespace legged_robot {
 /******************************************************************************************************/
 SwitchedModelReferenceManager::SwitchedModelReferenceManager(std::shared_ptr<GaitSchedule> gaitSchedulePtr,
                                                              std::shared_ptr<SwingTrajectoryPlanner> swingTrajectoryPtr)
-    : ReferenceManager(TargetTrajectories(), ModeSchedule()),  // Initialize base class
+    : ReferenceManager(TargetTrajectories(), ModeSchedule()),  // 初始化基类
       gaitSchedulePtr_(std::move(gaitSchedulePtr)),
       swingTrajectoryPtr_(std::move(swingTrajectoryPtr)) {}
 
@@ -45,9 +45,9 @@ SwitchedModelReferenceManager::SwitchedModelReferenceManager(std::shared_ptr<Gai
 /******************************************************************************************************/
 /******************************************************************************************************/
 void SwitchedModelReferenceManager::setModeSchedule(const ModeSchedule& modeSchedule) {
-  // Set the mode schedule in the base class
+  // 在基类中设置模式计划
   ReferenceManager::setModeSchedule(modeSchedule);
-  // Also set the mode schedule in the associated gait schedule object
+  // 同时在关联的步态计划对象中设置模式计划
   gaitSchedulePtr_->setModeSchedule(modeSchedule);
 }
 
@@ -55,7 +55,7 @@ void SwitchedModelReferenceManager::setModeSchedule(const ModeSchedule& modeSche
 /******************************************************************************************************/
 /******************************************************************************************************/
 contact_flag_t SwitchedModelReferenceManager::getContactFlags(scalar_t time) const {
-  // Get the mode at the given time and convert it to a contact flag vector
+  // 获取给定时间的模式，并将其转换为接触标志向量
   return modeNumber2StanceLeg(this->getModeSchedule().modeAtTime(time));
 }
 
@@ -64,13 +64,13 @@ contact_flag_t SwitchedModelReferenceManager::getContactFlags(scalar_t time) con
 /******************************************************************************************************/
 void SwitchedModelReferenceManager::modifyReferences(scalar_t initTime, scalar_t finalTime, const vector_t& initState,
                                                      TargetTrajectories& /*targetTrajectories*/, ModeSchedule& modeSchedule) {
-  // Get the mode schedule for the upcoming time horizon
+  // 获取即将到来的时间范围内的模式计划
   const auto timeHorizon = finalTime - initTime;
-  // Extend the mode schedule horizon to ensure the planner has future gait information
+  // 扩展模式计划的时间范围，以确保规划器拥有未来的步态信息
   modeSchedule = gaitSchedulePtr_->getModeSchedule(initTime - timeHorizon, finalTime + timeHorizon);
 
-  // Update the swing trajectory planner with the new mode schedule and terrain information
-  // Note: The terrain is assumed to be flat here. For uneven terrain, this would need to be updated.
+  // 使用新的模式计划和地形信息更新摆动轨迹规划器
+  // 注意：这里假设地形是平坦的。对于不平坦的地形，需要更新此部分。
   const scalar_t terrainHeight = 0.0;
   swingTrajectoryPtr_->update(modeSchedule, terrainHeight);
 }
