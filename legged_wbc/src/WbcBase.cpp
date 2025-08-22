@@ -21,6 +21,7 @@ WbcBase::WbcBase(const PinocchioInterface& pinocchioInterface, CentroidalModelIn
       mapping_(info_),
       inputLast_(vector_t::Zero(info_.inputDim)),
       eeKinematics_(eeKinematics.clone()) {
+  // Total number of decision variables in the optimization problem
   numDecisionVars_ = info_.generalizedCoordinatesNum + 3 * info_.numThreeDofContacts + info_.actuatedDofNum;
   qMeasured_ = vector_t(info_.generalizedCoordinatesNum);
   vMeasured_ = vector_t(info_.generalizedCoordinatesNum);
@@ -28,6 +29,7 @@ WbcBase::WbcBase(const PinocchioInterface& pinocchioInterface, CentroidalModelIn
 
 vector_t WbcBase::update(const vector_t& stateDesired, const vector_t& inputDesired, const vector_t& rbdStateMeasured, size_t mode,
                          scalar_t /*period*/) {
+  // Update contact flags and number of contacts
   contactFlag_ = modeNumber2StanceLeg(mode);
   numContacts_ = 0;
   for (bool flag : contactFlag_) {
@@ -36,13 +38,16 @@ vector_t WbcBase::update(const vector_t& stateDesired, const vector_t& inputDesi
     }
   }
 
+  // Update the internal model with measured and desired states
   updateMeasured(rbdStateMeasured);
   updateDesired(stateDesired, inputDesired);
 
+  // Base class returns an empty vector. Derived classes will solve the WBC problem and return the result.
   return {};
 }
 
 void WbcBase::updateMeasured(const vector_t& rbdStateMeasured) {
+  // Extract generalized coordinates and velocities from the measured state vector
   qMeasured_.head<3>() = rbdStateMeasured.segment<3>(3);
   qMeasured_.segment<3>(3) = rbdStateMeasured.head<3>();
   qMeasured_.tail(info_.actuatedDofNum) = rbdStateMeasured.segment(6, info_.actuatedDofNum);
@@ -54,13 +59,15 @@ void WbcBase::updateMeasured(const vector_t& rbdStateMeasured) {
   const auto& model = pinocchioInterfaceMeasured_.getModel();
   auto& data = pinocchioInterfaceMeasured_.getData();
 
-  // For floating base EoM task
+  // Perform forward kinematics and compute dynamics quantities for the measured state
   pinocchio::forwardKinematics(model, data, qMeasured_, vMeasured_);
   pinocchio::computeJointJacobians(model, data);
   pinocchio::updateFramePlacements(model, data);
-  pinocchio::crba(model, data, qMeasured_);
+  pinocchio::crba(model, data, qMeasured_);  // Composite Rigid Body Algorithm (CRBA) for mass matrix
   data.M.triangularView<Eigen::StrictlyLower>() = data.M.transpose().triangularView<Eigen::StrictlyLower>();
-  pinocchio::nonLinearEffects(model, data, qMeasured_, vMeasured_);
+  pinocchio::nonLinearEffects(model, data, qMeasured_, vMeasured_);  // Coriolis, centrifugal, and gravity terms
+
+  // Compute the contact Jacobian (J)
   j_ = matrix_t(3 * info_.numThreeDofContacts, info_.generalizedCoordinatesNum);
   for (size_t i = 0; i < info_.numThreeDofContacts; ++i) {
     Eigen::Matrix<scalar_t, 6, Eigen::Dynamic> jac;
@@ -69,7 +76,7 @@ void WbcBase::updateMeasured(const vector_t& rbdStateMeasured) {
     j_.block(3 * i, 0, 3, info_.generalizedCoordinatesNum) = jac.template topRows<3>();
   }
 
-  // For not contact motion task
+  // Compute the time derivative of the contact Jacobian (dJ/dt)
   pinocchio::computeJointJacobiansTimeVariation(model, data, qMeasured_, vMeasured_);
   dj_ = matrix_t(3 * info_.numThreeDofContacts, info_.generalizedCoordinatesNum);
   for (size_t i = 0; i < info_.numThreeDofContacts; ++i) {
@@ -81,6 +88,7 @@ void WbcBase::updateMeasured(const vector_t& rbdStateMeasured) {
 }
 
 void WbcBase::updateDesired(const vector_t& stateDesired, const vector_t& inputDesired) {
+  // Perform forward kinematics for the desired state to be used in task formulations
   const auto& model = pinocchioInterfaceDesired_.getModel();
   auto& data = pinocchioInterfaceDesired_.getData();
 
@@ -95,8 +103,12 @@ void WbcBase::updateDesired(const vector_t& stateDesired, const vector_t& inputD
 }
 
 Task WbcBase::formulateFloatingBaseEomTask() {
+  // This task enforces the robot's equations of motion: M*a + h = S*tau + J^T*f
+  // where a is generalized acceleration, h is nonlinear effects, tau is joint torques, f is contact forces.
+  // It is formulated as an equality constraint: [M, -J^T, -S^T] * [a; f; tau] = -h
   auto& data = pinocchioInterfaceMeasured_.getData();
 
+  // Selection matrix for actuated DOFs
   matrix_t s(info_.actuatedDofNum, info_.generalizedCoordinatesNum);
   s.block(0, 0, info_.actuatedDofNum, 6).setZero();
   s.block(0, 6, info_.actuatedDofNum, info_.actuatedDofNum).setIdentity();
@@ -108,10 +120,14 @@ Task WbcBase::formulateFloatingBaseEomTask() {
 }
 
 Task WbcBase::formulateTorqueLimitsTask() {
+  // This task enforces torque limits: -limit <= tau <= limit
+  // It is formulated as an inequality constraint: [0, 0, I; 0, 0, -I] * [a; f; tau] <= [limit; limit]
   matrix_t d(2 * info_.actuatedDofNum, numDecisionVars_);
   d.setZero();
   matrix_t i = matrix_t::Identity(info_.actuatedDofNum, info_.actuatedDofNum);
+  // tau <= limit
   d.block(0, info_.generalizedCoordinatesNum + 3 * info_.numThreeDofContacts, info_.actuatedDofNum, info_.actuatedDofNum) = i;
+  // -tau <= limit  (or tau >= -limit)
   d.block(info_.actuatedDofNum, info_.generalizedCoordinatesNum + 3 * info_.numThreeDofContacts, info_.actuatedDofNum,
           info_.actuatedDofNum) = -i;
   vector_t f(2 * info_.actuatedDofNum);
@@ -123,6 +139,9 @@ Task WbcBase::formulateTorqueLimitsTask() {
 }
 
 Task WbcBase::formulateNoContactMotionTask() {
+  // This task enforces the zero acceleration constraint for feet in contact (J*a + dJ*v = 0).
+  // This is a prerequisite for formulating the friction cone constraint.
+  // It is formulated as an equality constraint for all stance feet.
   matrix_t a(3 * numContacts_, numDecisionVars_);
   vector_t b(a.rows());
   a.setZero();
@@ -140,6 +159,12 @@ Task WbcBase::formulateNoContactMotionTask() {
 }
 
 Task WbcBase::formulateFrictionConeTask() {
+  // This task combines two things:
+  // 1. Zero force constraint for swing feet (equality).
+  // 2. Friction cone constraint for stance feet (inequality).
+  // It uses a linearized friction pyramid for the inequality constraint.
+
+  // Part 1: Zero force for swing feet
   matrix_t a(3 * (info_.numThreeDofContacts - numContacts_), numDecisionVars_);
   a.setZero();
   size_t j = 0;
@@ -151,12 +176,14 @@ Task WbcBase::formulateFrictionConeTask() {
   vector_t b(a.rows());
   b.setZero();
 
+  // Part 2: Friction cone for stance feet (linearized pyramid)
   matrix_t frictionPyramic(5, 3);  // clang-format off
-  frictionPyramic << 0, 0, -1,
-                     1, 0, -frictionCoeff_,
-                    -1, 0, -frictionCoeff_,
-                     0, 1, -frictionCoeff_,
-                     0,-1, -frictionCoeff_;  // clang-format on
+  frictionPyramic << 0, 0, -1,                // Fz <= 0 (normal force must be downwards)
+                     1, 0, -frictionCoeff_,   // Fx <= mu * Fz
+                    -1, 0, -frictionCoeff_,   // -Fx <= mu * Fz
+                     0, 1, -frictionCoeff_,   // Fy <= mu * Fz
+                     0,-1, -frictionCoeff_;   // -Fy <= mu * Fz
+                     // clang-format on
 
   matrix_t d(5 * numContacts_ + 3 * (info_.numThreeDofContacts - numContacts_), numDecisionVars_);
   d.setZero();
@@ -172,10 +199,13 @@ Task WbcBase::formulateFrictionConeTask() {
 }
 
 Task WbcBase::formulateBaseAccelTask(const vector_t& stateDesired, const vector_t& inputDesired, scalar_t period) {
+  // This task tracks the desired base acceleration from the MPC.
+  // It is formulated as an equality constraint on the first 6 decision variables (base acceleration).
   matrix_t a(6, numDecisionVars_);
   a.setZero();
   a.block(0, 0, 6, 6) = matrix_t::Identity(6, 6);
 
+  // Calculate the desired base acceleration based on the centroidal dynamics
   vector_t jointAccel = centroidal_model::getJointVelocities(inputDesired - inputLast_, info_) / period;
   inputLast_ = inputDesired;
   mapping_.setPinocchioInterface(pinocchioInterfaceDesired_);
@@ -200,6 +230,11 @@ Task WbcBase::formulateBaseAccelTask(const vector_t& stateDesired, const vector_
 }
 
 Task WbcBase::formulateSwingLegTask() {
+  // This task tracks a desired acceleration for the swing legs using a PD controller in Cartesian space.
+  // The desired acceleration is computed to drive the swing foot towards its desired trajectory.
+  // Formulated as an equality constraint: J*a + dJ*v = acc_desired
+
+  // Get measured and desired end-effector positions and velocities
   eeKinematics_->setPinocchioInterface(pinocchioInterfaceMeasured_);
   std::vector<vector3_t> posMeasured = eeKinematics_->getPosition(vector_t());
   std::vector<vector3_t> velMeasured = eeKinematics_->getVelocity(vector_t(), vector_t());
@@ -214,7 +249,9 @@ Task WbcBase::formulateSwingLegTask() {
   size_t j = 0;
   for (size_t i = 0; i < info_.numThreeDofContacts; ++i) {
     if (!contactFlag_[i]) {
+      // PD control to calculate desired acceleration
       vector3_t accel = swingKp_ * (posDesired[i] - posMeasured[i]) + swingKd_ * (velDesired[i] - velMeasured[i]);
+      // Set up the equality constraint matrix
       a.block(3 * j, 0, 3, info_.generalizedCoordinatesNum) = j_.block(3 * i, 0, 3, info_.generalizedCoordinatesNum);
       b.segment(3 * j, 3) = accel - dj_.block(3 * i, 0, 3, info_.generalizedCoordinatesNum) * vMeasured_;
       j++;
@@ -225,6 +262,9 @@ Task WbcBase::formulateSwingLegTask() {
 }
 
 Task WbcBase::formulateContactForceTask(const vector_t& inputDesired) const {
+  // This task tracks the desired contact forces from the MPC.
+  // It's typically a lower-priority task.
+  // Formulated as an equality constraint on the force decision variables.
   matrix_t a(3 * info_.numThreeDofContacts, numDecisionVars_);
   vector_t b(a.rows());
   a.setZero();

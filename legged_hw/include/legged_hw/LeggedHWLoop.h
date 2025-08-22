@@ -47,32 +47,49 @@
 
 namespace legged {
 
-class LeggedHWLoop {  // NOLINT(cppcoreguidelines-special-member-functions)
+/**
+ * @class LeggedHWLoop
+ * @brief Manages the real-time control loop for the hardware interface.
+ *
+ * This class follows the standard `ros_control` pattern for a hardware control loop. It is responsible for:
+ * 1. Creating a `controller_manager::ControllerManager` to manage all loaded controllers.
+ * 2. Spawning a dedicated real-time thread.
+ * 3. In the thread, running a loop at a specified frequency that calls the standard `ros_control` sequence:
+ *    - `hardware_interface->read()`: Read the latest sensor data from the hardware.
+ *    - `controller_manager->update()`: Run the update function of all active controllers.
+ *    - `hardware_interface->write()`: Send the latest commands to the hardware.
+ */
+class LeggedHWLoop {
   using Clock = std::chrono::high_resolution_clock;
   using Duration = std::chrono::duration<double>;
 
  public:
-  /** \brief Create controller manager. Load loop frequency. Start control loop which call @ref
-   * legged::RmRobotHWLoop::update() in a frequency.
+  /**
+   * @brief Constructor for the LeggedHWLoop.
+   *
+   * Initializes the controller manager, gets the loop frequency from the parameter server,
+   * and starts the real-time control loop in a new thread.
    *
    * @param nh Node-handle of a ROS node.
-   * @param hardware_interface A pointer which point to hardware_interface.
+   * @param hardware_interface A shared pointer to the hardware interface.
    */
   LeggedHWLoop(ros::NodeHandle& nh, std::shared_ptr<LeggedHW> hardware_interface);
 
+  /**
+   * @brief Destructor for the LeggedHWLoop.
+   *
+   * Stops the control loop thread and waits for it to join.
+   */
   ~LeggedHWLoop();
 
-  /** \brief Timed method that reads current hardware's state, runs the controller code once and sends the new commands
-   * to the hardware.
+  /**
+   * @brief The core update function of the control loop.
    *
-   * Timed method that reads current hardware's state, runs the controller code once and sends the new commands to the
-   * hardware.
-   *
+   * This method performs the standard `ros_control` read-update-write cycle.
    */
   void update();
 
  private:
-  // Startup and shutdown of the internal node inside a roscpp program
   ros::NodeHandle nh_;
 
   // Timing
@@ -82,15 +99,10 @@ class LeggedHWLoop {  // NOLINT(cppcoreguidelines-special-member-functions)
   ros::Duration elapsedTime_;
   Clock::time_point lastTime_;
 
-  /** ROS Controller Manager and Runner
-
-      This class advertises a ROS interface for loading, unloading, starting, and
-      stopping ros_control-based controllers. It also serializes execution of all
-      running controllers in \ref update.
-  **/
+  // The ROS Controller Manager
   std::shared_ptr<controller_manager::ControllerManager> controllerManager_;
 
-  // Abstract Hardware Interface for your robot
+  // The hardware interface
   std::shared_ptr<LeggedHW> hardwareInterface_;
 };
 

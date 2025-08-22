@@ -40,12 +40,14 @@ ZeroVelocityConstraintCppAd::ZeroVelocityConstraintCppAd(const SwitchedModelRefe
                                                          size_t contactPointIndex, EndEffectorLinearConstraint::Config config)
     : StateInputConstraint(ConstraintOrder::Linear),
       referenceManagerPtr_(&referenceManager),
+      // Initialize the underlying linear constraint. It is configured to constrain 3 dimensions (Vx, Vy, Vz).
       eeLinearConstraintPtr_(new EndEffectorLinearConstraint(endEffectorKinematics, 3, std::move(config))),
       contactPointIndex_(contactPointIndex) {}
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+// Standard copy constructor
 ZeroVelocityConstraintCppAd::ZeroVelocityConstraintCppAd(const ZeroVelocityConstraintCppAd& rhs)
     : StateInputConstraint(rhs),
       referenceManagerPtr_(rhs.referenceManagerPtr_),
@@ -56,6 +58,7 @@ ZeroVelocityConstraintCppAd::ZeroVelocityConstraintCppAd(const ZeroVelocityConst
 /******************************************************************************************************/
 /******************************************************************************************************/
 bool ZeroVelocityConstraintCppAd::isActive(scalar_t time) const {
+  // The constraint is active if the foot is in contact.
   return referenceManagerPtr_->getContactFlags(time)[contactPointIndex_];
 }
 
@@ -64,6 +67,7 @@ bool ZeroVelocityConstraintCppAd::isActive(scalar_t time) const {
 /******************************************************************************************************/
 vector_t ZeroVelocityConstraintCppAd::getValue(scalar_t time, const vector_t& state, const vector_t& input,
                                                const PreComputation& preComp) const {
+  // The constraint value is computed by the underlying EndEffectorLinearConstraint object.
   return eeLinearConstraintPtr_->getValue(time, state, input, preComp);
 }
 
@@ -73,6 +77,7 @@ vector_t ZeroVelocityConstraintCppAd::getValue(scalar_t time, const vector_t& st
 VectorFunctionLinearApproximation ZeroVelocityConstraintCppAd::getLinearApproximation(scalar_t time, const vector_t& state,
                                                                                       const vector_t& input,
                                                                                       const PreComputation& preComp) const {
+  // The linear approximation is computed by the underlying EndEffectorLinearConstraint object.
   return eeLinearConstraintPtr_->getLinearApproximation(time, state, input, preComp);
 }
 

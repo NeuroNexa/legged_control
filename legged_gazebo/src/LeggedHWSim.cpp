@@ -41,48 +41,61 @@
 namespace legged {
 bool LeggedHWSim::initSim(const std::string& robot_namespace, ros::NodeHandle model_nh, gazebo::physics::ModelPtr parent_model,
                           const urdf::Model* urdf_model, std::vector<transmission_interface::TransmissionInfo> transmissions) {
+  // Initialize the default simulation hardware interface
   bool ret = DefaultRobotHWSim::initSim(robot_namespace, model_nh, parent_model, urdf_model, transmissions);
-  // Joint interface
+
+  // Register the custom hybrid joint interface
   registerInterface(&hybridJointInterface_);
   std::vector<std::string> names = ej_interface_.getNames();
   for (const auto& name : names) {
     hybridJointDatas_.push_back(HybridJointData{.joint_ = ej_interface_.getHandle(name)});
     HybridJointData& back = hybridJointDatas_.back();
+    // Create a handle for the hybrid joint and register it with the interface
     hybridJointInterface_.registerHandle(HybridJointHandle(back.joint_, &back.posDes_, &back.velDes_, &back.kp_, &back.kd_, &back.ff_));
+    // Create a command buffer for this joint to handle delays
     cmdBuffer_.insert(std::make_pair(name.c_str(), std::deque<HybridJointCommand>()));
   }
-  // IMU interface
+
+  // Register the IMU interface and parse IMU data from the config
   registerInterface(&imuSensorInterface_);
   XmlRpc::XmlRpcValue xmlRpcValue;
   if (!model_nh.getParam("gazebo/imus", xmlRpcValue)) {
-    ROS_WARN("No imu specified");
+    ROS_WARN("No imu specified in config.");
   } else {
     parseImu(xmlRpcValue, parent_model);
   }
+
+  // Get command delay from the config
   if (!model_nh.getParam("gazebo/delay", delay_)) {
     delay_ = 0.;
   }
+
+  // Parse contact sensor data from the config
   if (!model_nh.getParam("gazebo/contacts", xmlRpcValue)) {
-    ROS_WARN("No contacts specified");
+    ROS_WARN("No contacts specified in config.");
   } else {
     parseContacts(xmlRpcValue);
   }
 
+  // Get the contact manager from Gazebo's physics engine
   contactManager_ = parent_model->GetWorld()->Physics()->GetContactManager();
-  contactManager_->SetNeverDropContacts(true);  // NOTE: If false, we need to select view->contacts in gazebo GUI to
-                                                // avoid returning nothing when calling ContactManager::GetContacts()
+  contactManager_->SetNeverDropContacts(true);
+
   return ret;
 }
 
 void LeggedHWSim::readSim(ros::Time time, ros::Duration period) {
-  //  gazebo_ros_control::DefaultRobotHWSim::readSim(time, period); The DefaultRobotHWSim Provide a bias joint velocity
+  // Read the joint states from Gazebo
   for (unsigned int j = 0; j < n_dof_; j++) {
     double position = sim_joints_[j]->Position(0);
 
+    // Manually compute velocity by differentiating position.
+    // The default implementation in DefaultRobotHWSim can be biased.
     joint_velocity_[j] = (position - joint_position_[j]) / period.toSec();
-    if (time == ros::Time(period.toSec())) {
+    if (time == ros::Time(period.toSec())) { // Handle simulation reset
       joint_velocity_[j] = 0;
     }
+    // Handle angle wrapping for revolute joints
     if (joint_types_[j] == urdf::Joint::PRISMATIC) {
       joint_position_[j] = position;
     } else {
@@ -91,9 +104,9 @@ void LeggedHWSim::readSim(ros::Time time, ros::Duration period) {
     joint_effort_[j] = sim_joints_[j]->GetForce((unsigned int)(0));
   }
 
-  // Imu Sensor
+  // Read IMU sensor data from Gazebo
   for (auto& imu : imuDatas_) {
-    // TODO(qiayuan) Add noise
+    // TODO(qiayuan): Add noise to simulate a real IMU
     ignition::math::Pose3d pose = imu.linkPtr_->WorldPose();
     imu.ori_[0] = pose.Rot().X();
     imu.ori_[1] = pose.Rot().Y();
@@ -104,6 +117,7 @@ void LeggedHWSim::readSim(ros::Time time, ros::Duration period) {
     imu.angularVel_[1] = rate.Y();
     imu.angularVel_[2] = rate.Z();
 
+    // Subtract gravity from the linear acceleration reading
     ignition::math::Vector3d gravity = {0., 0., -9.81};
     ignition::math::Vector3d accel = imu.linkPtr_->RelativeLinearAccel() - pose.Rot().RotateVectorReverse(gravity);
     imu.linearAcc_[0] = accel.X();
@@ -111,26 +125,28 @@ void LeggedHWSim::readSim(ros::Time time, ros::Duration period) {
     imu.linearAcc_[2] = accel.Z();
   }
 
-  // Contact Sensor
+  // Read contact sensor data from Gazebo's contact manager
   for (auto& state : name2contact_) {
-    state.second = false;
+    state.second = false; // Reset contact states
   }
   for (const auto& contact : contactManager_->GetContacts()) {
+    // Ensure the contact is for the correct time step
     if (static_cast<uint32_t>(contact->time.sec) != (time - period).sec ||
         static_cast<uint32_t>(contact->time.nsec) != (time - period).nsec) {
       continue;
     }
+    // Check if either of the colliding links is a registered contact sensor
     std::string linkName = contact->collision1->GetLink()->GetName();
-    if (name2contact_.find(linkName) != name2contact_.end()) {
+    if (name2contact_.count(linkName)) {
       name2contact_[linkName] = true;
     }
     linkName = contact->collision2->GetLink()->GetName();
-    if (name2contact_.find(linkName) != name2contact_.end()) {
+    if (name2contact_.count(linkName)) {
       name2contact_[linkName] = true;
     }
   }
 
-  // Set cmd to zero to avoid crazy soft limit oscillation when not controller loaded
+  // Set commands to zero to avoid oscillations when no controller is loaded
   for (auto& cmd : joint_effort_command_) {
     cmd = 0;
   }
@@ -147,22 +163,28 @@ void LeggedHWSim::readSim(ros::Time time, ros::Duration period) {
 }
 
 void LeggedHWSim::writeSim(ros::Time time, ros::Duration period) {
-  for (auto joint : hybridJointDatas_) {
+  // For each hybrid joint, process the command buffer to handle delays
+  for (auto& joint : hybridJointDatas_) {
     auto& buffer = cmdBuffer_.find(joint.joint_.getName())->second;
-    if (time == ros::Time(period.toSec())) {  // Simulation reset
+    if (time == ros::Time(period.toSec())) {  // Clear buffer on simulation reset
       buffer.clear();
     }
 
+    // Remove old commands from the buffer that are outside the delay window
     while (!buffer.empty() && buffer.back().stamp_ + ros::Duration(delay_) < time) {
       buffer.pop_back();
     }
+    // Add the new command to the front of the buffer
     buffer.push_front(HybridJointCommand{
         .stamp_ = time, .posDes_ = joint.posDes_, .velDes_ = joint.velDes_, .kp_ = joint.kp_, .kd_ = joint.kd_, .ff_ = joint.ff_});
 
+    // Get the command from the back of the buffer (the oldest one within the delay window)
     const auto& cmd = buffer.back();
-    joint.joint_.setCommand(cmd.kp_ * (cmd.posDes_ - joint.joint_.getPosition()) + cmd.kd_ * (cmd.velDes_ - joint.joint_.getVelocity()) +
-                            cmd.ff_);
+    // Compute the final torque command using a PD controller with a feed-forward term
+    double effort = cmd.kp_ * (cmd.posDes_ - joint.joint_.getPosition()) + cmd.kd_ * (cmd.velDes_ - joint.joint_.getVelocity()) + cmd.ff_;
+    joint.joint_.setCommand(effort);
   }
+  // Call the default writeSim to send the computed effort commands to Gazebo
   DefaultRobotHWSim::writeSim(time, period);
 }
 

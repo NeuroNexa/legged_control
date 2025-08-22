@@ -1,8 +1,19 @@
+# Configuration for the ROS controller manager.
+# This file defines the controllers that can be loaded and their types.
 controllers:
+  # A standard ros_control controller that reads all joint states from the hardware
+  # and publishes them on the /joint_states topic.
   joint_state_controller:
     type: joint_state_controller/JointStateController
     publish_rate: 100
+
+  # The main controller for the legged robot.
+  # This uses the state estimator.
   legged_controller:
     type: legged/LeggedController
+
+  # A "cheater" version of the controller for simulation.
+  # This controller gets ground truth state information directly from the simulator,
+  # bypassing the state estimator.
   legged_cheater_controller:
     type: legged/LeggedCheaterController

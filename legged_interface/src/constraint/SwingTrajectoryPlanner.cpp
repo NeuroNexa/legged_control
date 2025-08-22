@@ -33,8 +33,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "legged_interface/constraint/SwingTrajectoryPlanner.h"
 
 #include <ocs2_core/misc/Lookup.h>
-
 #include <ocs2_legged_robot/gait/MotionPhaseDefinition.h>
+#include <boost/property_tree/info_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 namespace ocs2 {
 namespace legged_robot {
@@ -48,7 +49,9 @@ SwingTrajectoryPlanner::SwingTrajectoryPlanner(Config config, size_t numFeet) : 
 /******************************************************************************************************/
 /******************************************************************************************************/
 scalar_t SwingTrajectoryPlanner::getZvelocityConstraint(size_t leg, scalar_t time) const {
+  // Find the correct spline segment for the given time
   const auto index = lookup::findIndexInTimeArray(feetHeightTrajectoriesEvents_[leg], time);
+  // Evaluate the velocity of the spline at that time
   return feetHeightTrajectories_[leg][index].velocity(time);
 }
 
@@ -56,60 +59,73 @@ scalar_t SwingTrajectoryPlanner::getZvelocityConstraint(size_t leg, scalar_t tim
 /******************************************************************************************************/
 /******************************************************************************************************/
 scalar_t SwingTrajectoryPlanner::getZpositionConstraint(size_t leg, scalar_t time) const {
+  // Find the correct spline segment for the given time
   const auto index = lookup::findIndexInTimeArray(feetHeightTrajectoriesEvents_[leg], time);
+  // Evaluate the position of the spline at that time
   return feetHeightTrajectories_[leg][index].position(time);
 }
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+// This is an overload for the simple case of a flat terrain.
 void SwingTrajectoryPlanner::update(const ModeSchedule& modeSchedule, scalar_t terrainHeight) {
+  // Create sequences of terrain heights for liftoff and touchdown, assuming flat ground
   const scalar_array_t terrainHeightSequence(modeSchedule.modeSequence.size(), terrainHeight);
   feet_array_t<scalar_array_t> liftOffHeightSequence;
   liftOffHeightSequence.fill(terrainHeightSequence);
   feet_array_t<scalar_array_t> touchDownHeightSequence;
   touchDownHeightSequence.fill(terrainHeightSequence);
+  // Call the more general update function
   update(modeSchedule, liftOffHeightSequence, touchDownHeightSequence);
 }
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+// This overload determines the swing height based on the max of liftoff and touchdown heights.
 void SwingTrajectoryPlanner::update(const ModeSchedule& modeSchedule, const feet_array_t<scalar_array_t>& liftOffHeightSequence,
                                     const feet_array_t<scalar_array_t>& touchDownHeightSequence) {
   scalar_array_t heightSequence(modeSchedule.modeSequence.size());
   feet_array_t<scalar_array_t> maxHeightSequence;
   for (size_t j = 0; j < numFeet_; j++) {
     for (int p = 0; p < modeSchedule.modeSequence.size(); ++p) {
+      // The base height for the swing is the maximum of the start and end heights
       heightSequence[p] = std::max(liftOffHeightSequence[j][p], touchDownHeightSequence[j][p]);
     }
     maxHeightSequence[j] = heightSequence;
   }
+  // Call the most general update function with the calculated max heights
   update(modeSchedule, liftOffHeightSequence, touchDownHeightSequence, maxHeightSequence);
 }
 
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+// This is the main update function that generates the swing trajectories.
 void SwingTrajectoryPlanner::update(const ModeSchedule& modeSchedule, const feet_array_t<scalar_array_t>& liftOffHeightSequence,
                                     const feet_array_t<scalar_array_t>& touchDownHeightSequence,
                                     const feet_array_t<scalar_array_t>& maxHeightSequence) {
   const auto& modeSequence = modeSchedule.modeSequence;
   const auto& eventTimes = modeSchedule.eventTimes;
 
+  // Extract contact flags for each foot from the mode sequence
   const auto eesContactFlagStocks = extractContactFlags(modeSequence);
 
+  // Determine the start and end time indices for each swing phase
   feet_array_t<std::vector<int>> startTimesIndices;
   feet_array_t<std::vector<int>> finalTimesIndices;
   for (size_t leg = 0; leg < numFeet_; leg++) {
     std::tie(startTimesIndices[leg], finalTimesIndices[leg]) = updateFootSchedule(eesContactFlagStocks[leg]);
   }
 
+  // Generate the spline trajectory for each foot for each phase
   for (size_t j = 0; j < numFeet_; j++) {
     feetHeightTrajectories_[j].clear();
     feetHeightTrajectories_[j].reserve(modeSequence.size());
     for (int p = 0; p < modeSequence.size(); ++p) {
-      if (!eesContactFlagStocks[j][p]) {  // for a swing leg
+      if (!eesContactFlagStocks[j][p]) {  // If it's a swing phase
+        // Get the start and end event indices for this swing phase
         const int swingStartIndex = startTimesIndices[j][p];
         const int swingFinalIndex = finalTimesIndices[j][p];
         checkThatIndicesAreValid(j, p, swingStartIndex, swingFinalIndex, modeSequence);
@@ -117,19 +133,27 @@ void SwingTrajectoryPlanner::update(const ModeSchedule& modeSchedule, const feet
         const scalar_t swingStartTime = eventTimes[swingStartIndex];
         const scalar_t swingFinalTime = eventTimes[swingFinalIndex];
 
+        // Scale swing velocity and height based on the duration of the swing phase
         const scalar_t scaling = swingTrajectoryScaling(swingStartTime, swingFinalTime, config_.swingTimeScale);
 
+        // Define the start (liftoff) and end (touchdown) nodes of the spline
         const CubicSpline::Node liftOff{swingStartTime, liftOffHeightSequence[j][p], scaling * config_.liftOffVelocity};
         const CubicSpline::Node touchDown{swingFinalTime, touchDownHeightSequence[j][p], scaling * config_.touchDownVelocity};
+        // The peak height of the swing trajectory
         const scalar_t midHeight = maxHeightSequence[j][p] + scaling * config_.swingHeight;
+
+        // Create the cubic spline for this swing phase
         feetHeightTrajectories_[j].emplace_back(liftOff, midHeight, touchDown);
-      } else {  // for a stance leg
-        // Note: setting the time here arbitrarily to 0.0 -> 1.0 makes the assert in CubicSpline fail
+
+      } else {  // If it's a stance phase
+        // For stance legs, create a dummy spline that holds the foot at the specified height
+        // Note: The time duration (0.0 to 1.0) is arbitrary as it's for a stance leg.
         const CubicSpline::Node liftOff{0.0, liftOffHeightSequence[j][p], 0.0};
         const CubicSpline::Node touchDown{1.0, liftOffHeightSequence[j][p], 0.0};
         feetHeightTrajectories_[j].emplace_back(liftOff, liftOffHeightSequence[j][p], touchDown);
       }
     }
+    // Store the event times for this foot
     feetHeightTrajectoriesEvents_[j] = eventTimes;
   }
 }
@@ -143,7 +167,7 @@ std::pair<std::vector<int>, std::vector<int>> SwingTrajectoryPlanner::updateFoot
   std::vector<int> startTimeIndexStock(numPhases, 0);
   std::vector<int> finalTimeIndexStock(numPhases, 0);
 
-  // find the startTime and finalTime indices for swing feet
+  // For each phase, if it's a swing phase, find the corresponding start (liftoff) and end (touchdown) event indices
   for (size_t i = 0; i < numPhases; i++) {
     if (!contactFlagStock[i]) {
       std::tie(startTimeIndexStock[i], finalTimeIndexStock[i]) = findIndex(i, contactFlagStock);
@@ -161,6 +185,7 @@ feet_array_t<std::vector<bool>> SwingTrajectoryPlanner::extractContactFlags(cons
   feet_array_t<std::vector<bool>> contactFlagStock;
   std::fill(contactFlagStock.begin(), contactFlagStock.end(), std::vector<bool>(numPhases));
 
+  // For each phase, convert the mode ID to a contact flag vector for all feet
   for (size_t i = 0; i < numPhases; i++) {
     const auto contactFlag = modeNumber2StanceLeg(phaseIDsStock[i]);
     for (size_t j = 0; j < numFeet_; j++) {
@@ -176,25 +201,25 @@ feet_array_t<std::vector<bool>> SwingTrajectoryPlanner::extractContactFlags(cons
 std::pair<int, int> SwingTrajectoryPlanner::findIndex(size_t index, const std::vector<bool>& contactFlagStock) {
   const size_t numPhases = contactFlagStock.size();
 
-  // skip if it is a stance leg
+  // If it's a stance leg, no swing phase to find, return default
   if (contactFlagStock[index]) {
     return {0, 0};
   }
 
-  // find the starting time
+  // Find the start time index by searching backwards for the last stance phase
   int startTimesIndex = -1;
   for (int ip = index - 1; ip >= 0; ip--) {
     if (contactFlagStock[ip]) {
-      startTimesIndex = ip;
+      startTimesIndex = ip;  // The event time index for liftoff
       break;
     }
   }
 
-  // find the final time
+  // Find the final time index by searching forwards for the next stance phase
   int finalTimesIndex = numPhases - 1;
   for (size_t ip = index + 1; ip < numPhases; ip++) {
     if (contactFlagStock[ip]) {
-      finalTimesIndex = ip - 1;
+      finalTimesIndex = ip - 1;  // The event time index for touchdown
       break;
     }
   }

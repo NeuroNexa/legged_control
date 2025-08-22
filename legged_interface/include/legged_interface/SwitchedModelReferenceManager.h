@@ -37,27 +37,62 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "legged_interface/constraint/SwingTrajectoryPlanner.h"
 
+// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
 namespace ocs2 {
 namespace legged_robot {
 
 /**
- * Manages the ModeSchedule and the TargetTrajectories for switched model.
+ * @class SwitchedModelReferenceManager
+ * @brief Manages the ModeSchedule and the TargetTrajectories for a switched model (e.g., a legged robot).
+ * This class is responsible for adapting the reference trajectories based on a predefined gait schedule
+ * and generating swing leg motions. It serves as a high-level manager for the robot's intended movement.
  */
 class SwitchedModelReferenceManager : public ReferenceManager {
  public:
+  /**
+   * @brief Constructor for SwitchedModelReferenceManager.
+   * @param gaitSchedulePtr : A pointer to the gait schedule, which defines the contact patterns over time.
+   * @param swingTrajectoryPtr : A pointer to the swing trajectory planner, which generates trajectories for feet in the air.
+   */
   SwitchedModelReferenceManager(std::shared_ptr<GaitSchedule> gaitSchedulePtr, std::shared_ptr<SwingTrajectoryPlanner> swingTrajectoryPtr);
 
   ~SwitchedModelReferenceManager() override = default;
 
+  /**
+   * @brief Sets the mode schedule for the robot. This is typically called to update the gait sequence.
+   * @param modeSchedule : The new mode schedule to be used.
+   */
   void setModeSchedule(const ModeSchedule& modeSchedule) override;
 
+  /**
+   * @brief Gets the contact flags for a specific time.
+   * @param time : The time at which to query the contact flags.
+   * @return A vector of booleans indicating if each foot is in contact.
+   */
   contact_flag_t getContactFlags(scalar_t time) const;
 
+  /**
+   * @brief Gets a pointer to the managed gait schedule.
+   * @return A const shared pointer to the GaitSchedule.
+   */
   const std::shared_ptr<GaitSchedule>& getGaitSchedule() { return gaitSchedulePtr_; }
 
+  /**
+   * @brief Gets a pointer to the managed swing trajectory planner.
+   * @return A const shared pointer to the SwingTrajectoryPlanner.
+   */
   const std::shared_ptr<SwingTrajectoryPlanner>& getSwingTrajectoryPlanner() { return swingTrajectoryPtr_; }
 
  protected:
+  /**
+   * @brief Modifies the reference trajectories based on the current gait and system state.
+   * This is the core function where swing trajectories are generated and target trajectories are updated.
+   * @param initTime : The initial time of the optimization horizon.
+   * @param finalTime : The final time of the optimization horizon.
+   * @param initState : The initial state of the robot.
+   * @param [out] targetTrajectories : The target trajectories to be modified.
+   * @param [out] modeSchedule : The mode schedule to be used for the horizon.
+   */
   void modifyReferences(scalar_t initTime, scalar_t finalTime, const vector_t& initState, TargetTrajectories& targetTrajectories,
                         ModeSchedule& modeSchedule) override;
 

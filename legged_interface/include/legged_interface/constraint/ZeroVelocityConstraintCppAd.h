@@ -34,23 +34,28 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "legged_interface/SwitchedModelReferenceManager.h"
 #include "legged_interface/constraint/EndEffectorLinearConstraint.h"
 
+// The file is located in legged_interface, but the namespace is ocs2::legged_robot for consistency with the ocs2 framework.
 namespace ocs2 {
 namespace legged_robot {
 
 /**
- * Specializes the CppAd version of zero velocity constraint on an end-effector position and linear velocity.
- * Constructs the member EndEffectorLinearConstraint object with number of constraints of 3.
+ * @class ZeroVelocityConstraintCppAd
+ * @brief This class enforces a zero velocity constraint on a specific end-effector (foot).
+ * It is used for feet that are in a stance phase, ensuring they remain stationary on the ground.
+ * This class is a specialization of the more general EndEffectorLinearConstraint, configured to
+ * constrain the 3D linear velocity to be zero. It uses CppAD for automatic differentiation.
+ * The constraint is active only when the reference manager indicates that the foot is in contact.
  *
  * See also EndEffectorLinearConstraint for the underlying computation.
  */
 class ZeroVelocityConstraintCppAd final : public StateInputConstraint {
  public:
   /**
-   * Constructor
-   * @param [in] referenceManager : Switched model ReferenceManager
-   * @param [in] endEffectorKinematics: The kinematic interface to the target end-effector.
-   * @param [in] contactPointIndex : The 3 DoF contact index.
-   * @param [in] config: The constraint coefficients
+   * @brief Constructor for the ZeroVelocityConstraintCppAd.
+   * @param referenceManager : Switched model ReferenceManager to check for contact.
+   * @param endEffectorKinematics : The kinematic interface to the target end-effector.
+   * @param contactPointIndex : The 3-DOF contact index this constraint applies to.
+   * @param config : The constraint coefficients. While this can be configured, it's typically set up for zero velocity.
    */
   ZeroVelocityConstraintCppAd(const SwitchedModelReferenceManager& referenceManager,
                               const EndEffectorKinematics<scalar_t>& endEffectorKinematics, size_t contactPointIndex,
@@ -59,6 +64,11 @@ class ZeroVelocityConstraintCppAd final : public StateInputConstraint {
   ~ZeroVelocityConstraintCppAd() override = default;
   ZeroVelocityConstraintCppAd* clone() const override { return new ZeroVelocityConstraintCppAd(*this); }
 
+  /**
+   * @brief Checks if the constraint is active at a given time (i.e., if the foot is in a stance phase).
+   * @param time : The time to check.
+   * @return True if the constraint is active, false otherwise.
+   */
   bool isActive(scalar_t time) const override;
   size_t getNumConstraints(scalar_t time) const override { return 3; }
   vector_t getValue(scalar_t time, const vector_t& state, const vector_t& input, const PreComputation& preComp) const override;
@@ -69,7 +79,7 @@ class ZeroVelocityConstraintCppAd final : public StateInputConstraint {
   ZeroVelocityConstraintCppAd(const ZeroVelocityConstraintCppAd& rhs);
 
   const SwitchedModelReferenceManager* referenceManagerPtr_;
-  std::unique_ptr<EndEffectorLinearConstraint> eeLinearConstraintPtr_;
+  std::unique_ptr<EndEffectorLinearConstraint> eeLinearConstraintPtr_;  // The underlying linear constraint object
   const size_t contactPointIndex_;
 };
 

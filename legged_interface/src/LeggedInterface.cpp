@@ -38,7 +38,7 @@ namespace legged {
 LeggedInterface::LeggedInterface(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile,
                                  bool useHardFrictionConeConstraint)
     : useHardFrictionConeConstraint_(useHardFrictionConeConstraint) {
-  // check that task file exists
+  // Check that the task file exists
   boost::filesystem::path taskFilePath(taskFile);
   if (boost::filesystem::exists(taskFilePath)) {
     std::cerr << "[LeggedInterface] Loading task file: " << taskFilePath << std::endl;
@@ -46,7 +46,7 @@ LeggedInterface::LeggedInterface(const std::string& taskFile, const std::string&
     throw std::invalid_argument("[LeggedInterface] Task file not found: " + taskFilePath.string());
   }
 
-  // check that urdf file exists
+  // Check that the URDF file exists
   boost::filesystem::path urdfFilePath(urdfFile);
   if (boost::filesystem::exists(urdfFilePath)) {
     std::cerr << "[LeggedInterface] Loading Pinocchio model from: " << urdfFilePath << std::endl;
@@ -54,7 +54,7 @@ LeggedInterface::LeggedInterface(const std::string& taskFile, const std::string&
     throw std::invalid_argument("[LeggedInterface] URDF file not found: " + urdfFilePath.string());
   }
 
-  // check that targetCommand file exists
+  // Check that the reference file exists
   boost::filesystem::path referenceFilePath(referenceFile);
   if (boost::filesystem::exists(referenceFilePath)) {
     std::cerr << "[LeggedInterface] Loading target command settings from: " << referenceFilePath << std::endl;
@@ -65,7 +65,7 @@ LeggedInterface::LeggedInterface(const std::string& taskFile, const std::string&
   bool verbose = false;
   loadData::loadCppDataType(taskFile, "legged_robot_interface.verbose", verbose);
 
-  // load setting from loading file
+  // Load settings from configuration files
   modelSettings_ = loadModelSettings(taskFile, "model_settings", verbose);
   mpcSettings_ = mpc::loadSettings(taskFile, "mpc", verbose);
   ddpSettings_ = ddp::loadSettings(taskFile, "ddp", verbose);
@@ -79,44 +79,51 @@ LeggedInterface::LeggedInterface(const std::string& taskFile, const std::string&
 /******************************************************************************************************/
 void LeggedInterface::setupOptimalControlProblem(const std::string& taskFile, const std::string& urdfFile, const std::string& referenceFile,
                                                  bool verbose) {
+  // Set up the robot model
   setupModel(taskFile, urdfFile, referenceFile, verbose);
 
-  // Initial state
+  // Set up the initial state
   initialState_.setZero(centroidalModelInfo_.stateDim);
   loadData::loadEigenMatrix(taskFile, "initialState", initialState_);
 
+  // Set up the reference manager
   setupReferenceManager(taskFile, urdfFile, referenceFile, verbose);
 
-  // Optimal control problem
+  // Create the optimal control problem
   problemPtr_ = std::make_unique<OptimalControlProblem>();
 
-  // Dynamics
+  // Set up the dynamics
   std::unique_ptr<SystemDynamicsBase> dynamicsPtr;
   dynamicsPtr = std::make_unique<LeggedRobotDynamicsAD>(*pinocchioInterfacePtr_, centroidalModelInfo_, "dynamics", modelSettings_);
   problemPtr_->dynamicsPtr = std::move(dynamicsPtr);
 
-  // Cost terms
+  // Set up the cost function
   problemPtr_->costPtr->add("baseTrackingCost", getBaseTrackingCost(taskFile, centroidalModelInfo_, verbose));
 
-  // Constraint terms
-  // friction cone settings
+  // Set up the constraints
+  // Load friction cone settings
   scalar_t frictionCoefficient = 0.7;
   RelaxedBarrierPenalty::Config barrierPenaltyConfig;
   std::tie(frictionCoefficient, barrierPenaltyConfig) = loadFrictionConeSettings(taskFile, verbose);
 
+  // Add constraints for each contact foot
   for (size_t i = 0; i < centroidalModelInfo_.numThreeDofContacts; i++) {
     const std::string& footName = modelSettings_.contactNames3DoF[i];
-    std::unique_ptr<EndEffectorKinematics<scalar_t>> eeKinematicsPtr = getEeKinematicsPtr({footName}, footName);
+    auto eeKinematicsPtr = getEeKinematicsPtr({footName}, footName);
 
+    // Friction cone constraint (either hard or soft)
     if (useHardFrictionConeConstraint_) {
       problemPtr_->inequalityConstraintPtr->add(footName + "_frictionCone", getFrictionConeConstraint(i, frictionCoefficient));
     } else {
       problemPtr_->softConstraintPtr->add(footName + "_frictionCone",
                                           getFrictionConeSoftConstraint(i, frictionCoefficient, barrierPenaltyConfig));
     }
+    // Zero force constraint for swing feet
     problemPtr_->equalityConstraintPtr->add(footName + "_zeroForce", std::unique_ptr<StateInputConstraint>(new ZeroForceConstraint(
                                                                          *referenceManagerPtr_, i, centroidalModelInfo_)));
+    // Zero velocity constraint for stance feet
     problemPtr_->equalityConstraintPtr->add(footName + "_zeroVelocity", getZeroVelocityConstraint(*eeKinematicsPtr, i));
+    // Normal velocity constraint for swing feet (e.g., to enforce touchdown velocity)
     problemPtr_->equalityConstraintPtr->add(
         footName + "_normalVelocity",
         std::unique_ptr<StateInputConstraint>(new NormalVelocityConstraintCppAd(*referenceManagerPtr_, *eeKinematicsPtr, i)));
@@ -126,12 +133,13 @@ void LeggedInterface::setupOptimalControlProblem(const std::string& taskFile, co
   problemPtr_->stateSoftConstraintPtr->add("selfCollision",
                                            getSelfCollisionConstraint(*pinocchioInterfacePtr_, taskFile, "selfCollision", verbose));
 
+  // Set up the pre-computation module
   setupPreComputation(taskFile, urdfFile, referenceFile, verbose);
 
-  // Rollout
+  // Set up the rollout
   rolloutPtr_ = std::make_unique<TimeTriggeredRollout>(*problemPtr_->dynamicsPtr, rolloutSettings_);
 
-  // Initialization
+  // Set up the initializer
   constexpr bool extendNormalizedNomentum = true;
   initializerPtr_ = std::make_unique<LeggedRobotInitializer>(centroidalModelInfo_, *referenceManagerPtr_, extendNormalizedNomentum);
 }

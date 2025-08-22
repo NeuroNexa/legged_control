@@ -26,7 +26,7 @@
 
 namespace legged {
 bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHandle& controller_nh) {
-  // Initialize OCS2
+  // Get configuration file paths from the parameter server
   std::string urdfFile;
   std::string taskFile;
   std::string referenceFile;
@@ -36,9 +36,13 @@ bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHand
   bool verbose = false;
   loadData::loadCppDataType(taskFile, "legged_robot_interface.verbose", verbose);
 
+  // Initialize the OCS2 legged interface, which sets up the optimal control problem
   setupLeggedInterface(taskFile, urdfFile, referenceFile, verbose);
+  // Initialize the MPC solver
   setupMpc();
+  // Initialize the Model-Reference Tracking (MRT) interface for thread-safe communication with the MPC
   setupMrt();
+
   // Visualization
   ros::NodeHandle nh;
   CentroidalModelPinocchioMapping pinocchioMapping(leggedInterface_->getCentroidalModelInfo());
@@ -49,7 +53,7 @@ bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHand
   selfCollisionVisualization_.reset(new LeggedSelfCollisionVisualization(leggedInterface_->getPinocchioInterface(),
                                                                          leggedInterface_->getGeometryInterface(), pinocchioMapping, nh));
 
-  // Hardware interface
+  // Get hardware handles from the RobotHW
   auto* hybridJointInterface = robot_hw->get<HybridJointInterface>();
   std::vector<std::string> joint_names{"LF_HAA", "LF_HFE", "LF_KFE", "LH_HAA", "LH_HFE", "LH_KFE",
                                        "RF_HAA", "RF_HFE", "RF_KFE", "RH_HAA", "RH_HFE", "RH_KFE"};
@@ -62,10 +66,11 @@ bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHand
   }
   imuSensorHandle_ = robot_hw->get<hardware_interface::ImuSensorInterface>()->getHandle("base_imu");
 
-  // State estimation
+  // State Estimation
   setupStateEstimate(taskFile, verbose);
 
-  // Whole body control
+  // Whole Body Control
+  // Here, a Weighted WBC is used, but it could be replaced with HierarchicalWbc
   wbc_ = std::make_shared<WeightedWbc>(leggedInterface_->getPinocchioInterface(), leggedInterface_->getCentroidalModelInfo(),
                                        *eeKinematicsPtr_);
   wbc_->loadTasksSetting(taskFile, verbose);
@@ -77,15 +82,16 @@ bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHand
 }
 
 void LeggedController::starting(const ros::Time& time) {
-  // Initial state
+  // Set the initial state of the robot.
   currentObservation_.state.setZero(leggedInterface_->getCentroidalModelInfo().stateDim);
-  updateStateEstimation(time, ros::Duration(0.002));
+  updateStateEstimation(time, ros::Duration(0.002)); // Run state estimation once to get the initial state
   currentObservation_.input.setZero(leggedInterface_->getCentroidalModelInfo().inputDim);
-  currentObservation_.mode = ModeNumber::STANCE;
+  currentObservation_.mode = ModeNumber::STANCE; // Assume starting in stance mode
 
+  // Create a dummy target trajectory to initialize the MPC
   TargetTrajectories target_trajectories({currentObservation_.time}, {currentObservation_.state}, {currentObservation_.input});
 
-  // Set the first observation and command and wait for optimization to finish
+  // Set the first observation and command and wait for the MPC to compute the first policy
   mpcMrtInterface_->setCurrentObservation(currentObservation_);
   mpcMrtInterface_->getReferenceManager().setTargetTrajectories(target_trajectories);
   ROS_INFO_STREAM("Waiting for the initial policy ...");
@@ -99,51 +105,57 @@ void LeggedController::starting(const ros::Time& time) {
 }
 
 void LeggedController::update(const ros::Time& time, const ros::Duration& period) {
-  // State Estimate
+  // 1. Estimate the current state of the robot from sensor data
   updateStateEstimation(time, period);
 
-  // Update the current state of the system
+  // 2. Update the MPC with the new current state
   mpcMrtInterface_->setCurrentObservation(currentObservation_);
 
-  // Load the latest MPC policy
+  // 3. Get the latest policy from the MPC thread
   mpcMrtInterface_->updatePolicy();
 
-  // Evaluate the current policy
+  // 4. Evaluate the policy to get the desired state and input for the current time step
   vector_t optimizedState, optimizedInput;
   size_t plannedMode = 0;  // The mode that is active at the time the policy is evaluated at.
   mpcMrtInterface_->evaluatePolicy(currentObservation_.time, currentObservation_.state, optimizedState, optimizedInput, plannedMode);
 
-  // Whole body control
+  // 5. Run the Whole Body Controller (WBC) to get the desired joint torques
   currentObservation_.input = optimizedInput;
 
   wbcTimer_.startTimer();
+  // The WBC computes the optimal generalized accelerations, contact forces, and joint torques
   vector_t x = wbc_->update(optimizedState, optimizedInput, measuredRbdState_, plannedMode, period.toSec());
   wbcTimer_.endTimer();
 
+  // Extract the torques from the WBC solution
   vector_t torque = x.tail(12);
 
+  // Extract desired positions and velocities for the PD controller on the joints
   vector_t posDes = centroidal_model::getJointAngles(optimizedState, leggedInterface_->getCentroidalModelInfo());
   vector_t velDes = centroidal_model::getJointVelocities(optimizedInput, leggedInterface_->getCentroidalModelInfo());
 
-  // Safety check, if failed, stop the controller
+  // 6. Safety check: ensure the commands are safe before sending them to the hardware
   if (!safetyChecker_->check(currentObservation_, optimizedState, optimizedInput)) {
     ROS_ERROR_STREAM("[Legged Controller] Safety check failed, stopping the controller.");
     stopRequest(time);
   }
 
+  // 7. Send commands to the hardware
   for (size_t j = 0; j < leggedInterface_->getCentroidalModelInfo().actuatedDofNum; ++j) {
+    // The hybrid joint handle takes position, velocity, and torque commands
     hybridJointHandles_[j].setCommand(posDes(j), velDes(j), 0, 3, torque(j));
   }
 
-  // Visualization
+  // 8. Visualization
   robotVisualizer_->update(currentObservation_, mpcMrtInterface_->getPolicy(), mpcMrtInterface_->getCommand());
   selfCollisionVisualization_->update(currentObservation_);
 
-  // Publish the observation. Only needed for the command interface
+  // Publish the observation for debugging and external tools
   observationPublisher_.publish(ros_msg_conversions::createObservationMsg(currentObservation_));
 }
 
 void LeggedController::updateStateEstimation(const ros::Time& time, const ros::Duration& period) {
+  // Read sensor data from the hardware interfaces
   vector_t jointPos(hybridJointHandles_.size()), jointVel(hybridJointHandles_.size());
   contact_flag_t contacts;
   Eigen::Quaternion<scalar_t> quat;
@@ -171,22 +183,30 @@ void LeggedController::updateStateEstimation(const ros::Time& time, const ros::D
     linearAccelCovariance(i) = imuSensorHandle_.getLinearAccelerationCovariance()[i];
   }
 
+  // Update the state estimator with the new sensor data
   stateEstimate_->updateJointStates(jointPos, jointVel);
   stateEstimate_->updateContact(contactFlag);
   stateEstimate_->updateImu(quat, angularVel, linearAccel, orientationCovariance, angularVelCovariance, linearAccelCovariance);
+
+  // Get the new state estimate
   measuredRbdState_ = stateEstimate_->update(time, period);
+
+  // Update the observation for the MPC
   currentObservation_.time += period.toSec();
   scalar_t yawLast = currentObservation_.state(9);
   currentObservation_.state = rbdConversions_->computeCentroidalStateFromRbdModel(measuredRbdState_);
+  // Make sure yaw is continuous
   currentObservation_.state(9) = yawLast + angles::shortest_angular_distance(yawLast, currentObservation_.state(9));
   currentObservation_.mode = stateEstimate_->getMode();
 }
 
 LeggedController::~LeggedController() {
+  // Stop the MPC thread
   controllerRunning_ = false;
   if (mpcThread_.joinable()) {
     mpcThread_.join();
   }
+  // Print benchmarking information
   std::cerr << "########################################################################";
   std::cerr << "\n### MPC Benchmarking";
   std::cerr << "\n###   Maximum : " << mpcTimer_.getMaxIntervalInMilliseconds() << "[ms].";
