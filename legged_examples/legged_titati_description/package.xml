@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>legged_titati_description</name>
+    <version>0.0.0</version>
+    <description>Titati robot description files</description>
+    <maintainer email="user@todo.com">user</maintainer>
+    <license>BSD</license>
+    <author email="user@todo.com">user</author>
+
+    <!-- buildtool_depend: dependencies of the build process -->
+    <buildtool_depend>catkin</buildtool_depend>
+    <exec_depend>xacro</exec_depend>
+    <exec_depend>joint_state_publisher</exec_depend>
+    <exec_depend>robot_state_publisher</exec_depend>
+
+</package>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- inertial parameter -->
+    <!-- Trunk -->
+    <xacro:property name="trunk_mass" value="26.085"/>
+    <xacro:property name="trunk_com_x" value="9.657E-05"/>
+    <xacro:property name="trunk_com_y" value="4.946E-06"/>
+    <xacro:property name="trunk_com_z" value="0.018311"/>
+    <xacro:property name="trunk_ixx" value="0.13241"/>
+    <xacro:property name="trunk_ixy" value="-1.5238E-05"/>
+    <xacro:property name="trunk_ixz" value="2.9159E-07"/>
+    <xacro:property name="trunk_iyy" value="0.21427"/>
+    <xacro:property name="trunk_iyz" value="3.83E-07"/>
+    <xacro:property name="trunk_izz" value="0.29638"/>
+    <!-- Hip -->
+    <xacro:property name="hip_mass" value="2.06397"/>
+    <xacro:property name="hip_com_x" value="0.0016025"/>
+    <xacro:property name="hip_com_y" value="5.02529E-05"/>
+    <xacro:property name="hip_com_z" value="0.0006379"/>
+    <xacro:property name="hip_ixx" value="0.004304"/>
+    <xacro:property name="hip_ixy" value="-1.3538E-07"/>
+    <xacro:property name="hip_ixz" value="8.05398E-05"/>
+    <xacro:property name="hip_iyy" value="0.002998"/>
+    <xacro:property name="hip_iyz" value="-1.5446E-06"/>
+    <xacro:property name="hip_izz" value="0.002270"/>
+    <!-- Thigh -->
+    <xacro:property name="thigh_mass" value="3.08318"/>
+    <xacro:property name="thigh_com_x" value="0.019808"/>
+    <xacro:property name="thigh_com_y" value="0.000674"/>
+    <xacro:property name="thigh_com_z" value="-0.02803"/>
+    <xacro:property name="thigh_ixx" value="0.002953"/>
+    <xacro:property name="thigh_ixy" value="-0.000104"/>
+    <xacro:property name="thigh_ixz" value="8.0387E-05"/>
+    <xacro:property name="thigh_iyy" value="0.006500"/>
+    <xacro:property name="thigh_iyz" value="9.5105E-06"/>
+    <xacro:property name="thigh_izz" value="0.008827"/>
+    <!-- Calf -->
+    <xacro:property name="calf_mass" value="0.13757"/>
+    <xacro:property name="calf_com_x" value="0.08870"/>
+    <xacro:property name="calf_com_y" value="0.01239"/>
+    <xacro:property name="calf_com_z" value="-0.0124"/>
+    <xacro:property name="calf_ixx" value="6.1203E-05"/>
+    <xacro:property name="calf_ixy" value="0.00011"/>
+    <xacro:property name="calf_ixz" value="1.8997E-06"/>
+    <xacro:property name="calf_iyy" value="0.000500"/>
+    <xacro:property name="calf_iyz" value="-1.7499E-06"/>
+    <xacro:property name="calf_izz" value="0.000559"/>
+
+    <!-- geometry parameter -->
+    <xacro:property name="trunk_length" value="0.53"/>
+    <xacro:property name="trunk_width" value="0.179"/>
+    <xacro:property name="trunk_height" value="0.1"/>
+    <xacro:property name="leg_offset_x" value="0.26556"/>
+    <xacro:property name="leg_offset_y" value="0.0895"/>
+    <xacro:property name="hip_length" value="0.1426"/>
+    <xacro:property name="hip_radius" value="0.05"/>
+    <xacro:property name="thigh_length" value="0.2"/>
+    <xacro:property name="thigh_offset" value="0"/>
+    <xacro:property name="thigh_shoulder_length" value="0.1"/>
+    <xacro:property name="thigh_shoulder_radius" value="0.05"/>
+    <xacro:property name="calf_length" value="0.2"/>
+    <xacro:property name="foot_radius" value="0.02"/>
+    <xacro:property name="foot_mass" value="1.509"/>
+    <xacro:property name="damping" value="0.1"/>
+    <xacro:property name="friction" value="0.5"/>
+
+    <!-- joint limits -->
+    <xacro:property name="hip_position_min" value="-0.8727"/>
+    <xacro:property name="hip_position_max" value="0.8727"/>
+    <xacro:property name="thigh_position_min" value="-3.14"/>
+    <xacro:property name="thigh_position_max" value="3.14"/>
+    <xacro:property name="calf_position_min" value="-3.14"/>
+    <xacro:property name="calf_position_max" value="3.14"/>
+
+    <!-- joint limits -->
+    <xacro:property name="hip_torque_max" value="20.0"/>
+    <xacro:property name="thigh_torque_max" value="55.0"/>
+    <xacro:property name="calf_torque_max" value="55.0"/>
+    <xacro:property name="hip_velocity_max" value="52.4"/>
+    <xacro:property name="thigh_velocity_max" value="28.6"/>
+    <xacro:property name="calf_velocity_max" value="28.6"/>
+</robot>
