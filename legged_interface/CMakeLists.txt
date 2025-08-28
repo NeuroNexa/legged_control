@@ -54,6 +54,7 @@ add_library(${PROJECT_NAME}
         src/constraint/ZeroForceConstraint.cpp
         src/constraint/NormalVelocityConstraintCppAd.cpp
         src/constraint/ZeroVelocityConstraintCppAd.cpp
+        src/constraint/RollingConstraintCppAd.cpp
         src/constraint/SwingTrajectoryPlanner.cpp
         src/initialization/LeggedRobotInitializer.cpp
         src/SwitchedModelReferenceManager.cpp

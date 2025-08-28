@@ -14,6 +14,7 @@
 #include "legged_interface/constraint/NormalVelocityConstraintCppAd.h"
 #include "legged_interface/constraint/ZeroForceConstraint.h"
 #include "legged_interface/constraint/ZeroVelocityConstraintCppAd.h"
+#include "legged_interface/constraint/RollingConstraintCppAd.h"
 #include "legged_interface/cost/LeggedRobotQuadraticTrackingCost.h"
 #include "legged_interface/initialization/LeggedRobotInitializer.h"
 
@@ -116,7 +117,7 @@ void LeggedInterface::setupOptimalControlProblem(const std::string& taskFile, co
     }
     problemPtr_->equalityConstraintPtr->add(footName + "_zeroForce", std::unique_ptr<StateInputConstraint>(new ZeroForceConstraint(
                                                                          *referenceManagerPtr_, i, centroidalModelInfo_)));
-    problemPtr_->equalityConstraintPtr->add(footName + "_zeroVelocity", getZeroVelocityConstraint(*eeKinematicsPtr, i));
+    problemPtr_->equalityConstraintPtr->add(footName + "_rollingVelocity", getRollingConstraint(*eeKinematicsPtr, i));
     problemPtr_->equalityConstraintPtr->add(
         footName + "_normalVelocity",
         std::unique_ptr<StateInputConstraint>(new NormalVelocityConstraintCppAd(*referenceManagerPtr_, *eeKinematicsPtr, i)));
@@ -330,6 +331,27 @@ std::unique_ptr<StateInputConstraint> LeggedInterface::getZeroVelocityConstraint
   };
   return std::unique_ptr<StateInputConstraint>(new ZeroVelocityConstraintCppAd(*referenceManagerPtr_, eeKinematics, contactPointIndex,
                                                                                eeZeroVelConConfig(modelSettings_.positionErrorGain)));
+}
+
+/******************************************************************************************************/
+/******************************************************************************************************/
+/******************************************************************************************************/
+std::unique_ptr<StateInputConstraint> LeggedInterface::getRollingConstraint(const EndEffectorKinematics<scalar_t>& eeKinematics,
+                                                                            size_t contactPointIndex) {
+  auto eeRollingVelConConfig = [](scalar_t positionErrorGain) {
+    EndEffectorLinearConstraint::Config config;
+    config.b.setZero(2);
+    config.Av.setZero(2, 3);
+    config.Av(0, 1) = 1.0;  // Y velocity
+    config.Av(1, 2) = 1.0;  // Z velocity
+    if (!numerics::almost_eq(positionErrorGain, 0.0)) {
+      config.Ax.setZero(2, 3);
+      config.Ax(1, 2) = positionErrorGain; // Z position
+    }
+    return config;
+  };
+  return std::unique_ptr<StateInputConstraint>(
+      new RollingConstraintCppAd(*referenceManagerPtr_, eeKinematics, contactPointIndex, eeRollingVelConConfig(modelSettings_.positionErrorGain)));
 }
 
 /******************************************************************************************************/

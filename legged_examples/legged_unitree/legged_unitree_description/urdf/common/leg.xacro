@@ -139,38 +139,39 @@
             </inertial>
         </link>
 
-        <joint name="${prefix}_foot_fixed" type="fixed" dont_collapse="true">
+        <joint name="${prefix}_WHEEL_JOINT" type="continuous">
             <origin rpy="0 0 0" xyz="0 0 ${-(calf_length)}"/>
             <parent link="${prefix}_calf"/>
-            <child link="${prefix}_FOOT"/>
+            <child link="${prefix}_WHEEL"/>
+            <axis xyz="0 1 0"/>
+            <dynamics damping="${damping}" friction="${friction}"/>
         </joint>
 
-        <link name="${prefix}_FOOT">
+        <link name="${prefix}_WHEEL">
+            <xacro:property name="wheel_radius" value="0.05"/>
+            <xacro:property name="wheel_width" value="0.02"/>
+            <xacro:property name="wheel_mass" value="0.1"/>
             <visual>
-                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <origin rpy="${pi/2} 0 0" xyz="0 0 0"/>
                 <geometry>
-                    <sphere radius="${foot_radius-0.01}"/>
+                    <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
                 </geometry>
                 <material name="orange"/>
             </visual>
             <collision>
-                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <origin rpy="${pi/2} 0 0" xyz="0 0 0"/>
                 <geometry>
-                    <sphere radius="${foot_radius}"/>
+                    <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
                 </geometry>
             </collision>
             <inertial>
-                <mass value="${foot_mass}"/>
-                <inertia
-                        ixx="${(2*foot_mass)/5.0*(foot_radius*foot_radius)}" ixy="0.0" ixz="0.0"
-                        iyy="${(2*foot_mass)/5.0*(foot_radius*foot_radius)}" iyz="0.0"
-                        izz="${(2*foot_mass)/5.0*(foot_radius*foot_radius)}"/>
+                <mass value="${wheel_mass}"/>
+                <xacro:property name="ixx" value="${(1/12) * wheel_mass * (3 * wheel_radius * wheel_radius + wheel_width * wheel_width)}"/>
+                <xacro:property name="iyy" value="${(1/2) * wheel_mass * wheel_radius * wheel_radius}"/>
+                <xacro:property name="izz" value="${(1/12) * wheel_mass * (3 * wheel_radius * wheel_radius + wheel_width * wheel_width)}"/>
+                <inertia ixx="${ixx}" ixy="0.0" ixz="0.0" iyy="${iyy}" iyz="0.0" izz="${izz}"/>
             </inertial>
         </link>
-
-        <gazebo reference="${prefix}_foot_fixed">
-            <disableFixedJointLumping>true</disableFixedJointLumping>
-        </gazebo>
 
         <gazebo reference="${prefix}_hip">
             <mu1>0.2</mu1>
@@ -190,9 +191,9 @@
             <mu2>0.6</mu2>
             <self_collide>1</self_collide>
         </gazebo>
-        <gazebo reference="${prefix}_FOOT">
-            <mu1>0.6</mu1>
-            <mu2>0.6</mu2>
+        <gazebo reference="${prefix}_WHEEL">
+            <mu1>0.8</mu1>
+            <mu2>0.8</mu2>
             <self_collide>1</self_collide>
             <material>Gazebo/DarkGrey</material>
             <kp value="1000000.0"/>

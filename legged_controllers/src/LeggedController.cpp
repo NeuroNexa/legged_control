@@ -52,7 +52,8 @@ bool LeggedController::init(hardware_interface::RobotHW* robot_hw, ros::NodeHand
   // Hardware interface
   auto* hybridJointInterface = robot_hw->get<HybridJointInterface>();
   std::vector<std::string> joint_names{"LF_HAA", "LF_HFE", "LF_KFE", "LH_HAA", "LH_HFE", "LH_KFE",
-                                       "RF_HAA", "RF_HFE", "RF_KFE", "RH_HAA", "RH_HFE", "RH_KFE"};
+                                       "RF_HAA", "RF_HFE", "RF_KFE", "RH_HAA", "RH_HFE", "RH_KFE",
+                                       "LF_WHEEL_JOINT", "LH_WHEEL_JOINT", "RF_WHEEL_JOINT", "RH_WHEEL_JOINT"};
   for (const auto& joint_name : joint_names) {
     hybridJointHandles_.push_back(hybridJointInterface->getHandle(joint_name));
   }
@@ -120,7 +121,7 @@ void LeggedController::update(const ros::Time& time, const ros::Duration& period
   vector_t x = wbc_->update(optimizedState, optimizedInput, measuredRbdState_, plannedMode, period.toSec());
   wbcTimer_.endTimer();
 
-  vector_t torque = x.tail(12);
+  vector_t torque = x.tail(16);
 
   vector_t posDes = centroidal_model::getJointAngles(optimizedState, leggedInterface_->getCentroidalModelInfo());
   vector_t velDes = centroidal_model::getJointVelocities(optimizedInput, leggedInterface_->getCentroidalModelInfo());
